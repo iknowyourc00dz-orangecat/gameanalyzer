@@ -1,0 +1,219 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Crash Games Bets Analyzer</title>
+<style>
+  body { font-family:'Segoe UI', Tahoma, sans-serif; background: radial-gradient(circle at top,#0f0f1a,#050509); color:#e0e0e0; padding:25px; margin:0; }
+  h1 { text-align:center; font-size:2rem; color:#33ffff; margin-bottom:20px; text-shadow:0 0 8px rgba(51,255,255,0.5); }
+  h2 { color:#33ffff; margin-top:25px; font-size:1.2rem; text-shadow:0 0 5px rgba(51,255,255,0.3); }
+  textarea { width:100%; height:180px; background:#1a1a2e; color:#fff; padding:12px; border:1px solid #444; border-radius:12px; resize:none; font-family:monospace; box-shadow: inset 0 0 10px rgba(51,255,255,0.08); }
+  button { margin:6px; padding:10px 18px; background:#33ffff; border:none; border-radius:12px; cursor:pointer; font-weight:bold; font-size:0.9rem; transition:0.18s; }
+  button:hover { background:#00e6b8; transform:translateY(-2px) scale(1.03); box-shadow:0 0 15px rgba(51,255,255,0.4); }
+  #filters button.active { background:#ffcc66; color:#000; transform:translateY(-1px) scale(1.02); }
+  .card { background:#151522; border:1px solid #222; border-radius:16px; padding:20px; margin-top:25px; box-shadow:0 0 15px rgba(51,255,255,0.1); }
+
+  table { width:100%; border-collapse:separate; border-spacing:0 6px; margin-top:15px; font-size:0.9rem; }
+  th { background:#1e2235; color:#33ffff; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px; padding:10px; border-radius:8px; }
+  td { padding:12px; text-align:center; border-radius:8px; }
+  tbody tr { transition:0.2s; }
+  tbody tr:hover { transform:scale(1.01); box-shadow:0 0 10px rgba(51,255,255,0.15); }
+
+  /* Status row colors */
+  .row-arb td { background:#1a0f26; color:#cc99ff; font-weight:bold; }  /* Purple ARB */
+  .row-normal td { background:#0a1633; color:#3399ff; font-weight:bold; }
+  .row-loss td { background:#1a0d1d; color:#ff6666; font-weight:bold; }
+
+  td.highlight, th.highlight { background:#222a33; font-weight:bold; }
+  .row-arb td.highlight { color:#cc99ff; font-weight:bold; } /* ARB multiplier highlight purple */
+
+  #filters .date-controls { margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .search-bar { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .search-bar input { flex:1; min-width:200px; padding:8px; border-radius:8px; border:1px solid #444; background:#1a1a2e; color:#fff; }
+</style>
+</head>
+<body>
+
+<h1>Crash Games Bets Checker</h1>
+<textarea id="inputData" placeholder="Paste your crash game bets here..."></textarea><br>
+<button onclick="processData()">Analyze</button>
+
+<div id="summary" class="card"></div>
+
+<div id="filters" class="card" style="display:none;">
+  <h2>🔎 Filter Crash Bets</h2>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    <button data-type="ALL" onclick="applyFilter('ALL')">Show All</button>
+    <button data-type="ARB" onclick="applyFilter('ARB')">ARB Only</button>
+    <button data-type="NORMAL" onclick="applyFilter('NORMAL')">Normal Only</button>
+    <button data-type="LOSS" onclick="applyFilter('LOSS')">Loss Only</button>
+    <button data-type="HIGHEST" onclick="applyFilter('HIGHEST')">Highest Multiplier</button>
+    <button data-type="LOWEST" onclick="applyFilter('LOWEST')">Lowest Multiplier</button>
+    <button data-type="HIGH_PAYOUT" onclick="applyFilter('HIGH_PAYOUT')">Highest Payout</button>
+    <button data-type="LOW_PAYOUT" onclick="applyFilter('LOW_PAYOUT')">Lowest Payout</button>
+    <button data-type="HIGH_BET" onclick="applyFilter('HIGH_BET')">Highest Bet</button>
+    <button data-type="LOW_BET" onclick="applyFilter('LOW_BET')">Lowest Bet</button>
+    <button data-type="HIGH_WIN" onclick="applyFilter('HIGH_WIN')">Highest Win</button>
+    <button data-type="LOW_WIN" onclick="applyFilter('LOW_WIN')">Lowest Win</button>
+  </div>
+
+  <div class="date-controls">
+    <label for="dateFilter">Filter by Date:</label>
+    <input type="date" id="dateFilter">
+    <button onclick="filterByDate()">Apply Date</button>
+    <button onclick="clearDateFilter()">Clear Date</button>
+  </div>
+
+  <div class="search-bar">
+    <label for="searchInput">🔍 Search:</label>
+    <input type="text" id="searchInput" placeholder="Type to search...">
+    <button onclick="clearSearch()">Clear</button>
+  </div>
+</div>
+
+<div id="result" class="card"></div>
+
+<script>
+function toISODate(s){
+  if(!s)return"";
+  s=String(s).trim();
+  let m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m)return`${m[1]}-${('0'+m[2]).slice(-2)}-${('0'+m[3]).slice(-2)}`;
+  m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if(m)return`${m[3]}-${('0'+m[2]).slice(-2)}-${('0'+m[1]).slice(-2)}`;
+  const dt=new Date(s);
+  return !isNaN(dt.getTime())?dt.toISOString().slice(0,10):s;
+}
+
+let globalBets=[];
+
+function processData(){
+  const raw=document.getElementById("inputData").value.trim();
+  if(!raw)return alert("Please paste your bets first.");
+  const crashKeywords=/(aviator|crash|jetx|spaceman|pilot|fly|rocket|blast|up|high|boom)/i;
+  const lines=raw.split("\n").filter(l=>crashKeywords.test(l));
+  if(!lines.length)return alert("No crash-type bets detected.");
+
+  globalBets=[];
+  const summary={};
+
+  lines.forEach(line=>{
+    const parts=line.split("\t").map(p=>p.trim());
+    const dateTime=parts[0]||"";
+    const settled=parts[1]||"";
+    const created=parts[2]||"";
+    const vendor=parts[3]||"";
+    const game=parts[5]||"";
+    const bet=parseFloat(parts[8]?.replace(/,/g,""))||0;
+    const winLossStr=parts[9]||"";
+    const turnover=parseFloat(parts[10]?.replace(/,/g,""))||0;
+
+    let winVal=0;
+    if(winLossStr && !winLossStr.includes("(")) winVal=parseFloat(winLossStr.replace(/,/g,""))||0;
+    const payout=winVal>0?bet+winVal:0;
+    const profit=winVal>0?winVal:(winLossStr.includes("(")?-Math.abs(parseFloat(winLossStr.replace(/[()]/g,"").replace(/,/g,""))||0):0);
+    const multiplierNum=(bet>0 && payout>0)?(payout/bet):0;
+    const multiplier=multiplierNum>0?multiplierNum.toFixed(2)+"x":"-";
+    const date=toISODate(dateTime.split(" ")[0]||dateTime);
+
+    let status,rowClass;
+    if(multiplier==="-"){status="LOSS"; rowClass="row-loss";}
+    else if(multiplierNum<=1.1){status="ARB"; rowClass="row-arb";}
+    else{status="NORMAL"; rowClass="row-normal";}
+
+    if(!summary[date]) summary[date]={ARB:0,NORMAL:0,LOSS:0,TOTAL:0,ARB_SUM:0,NORMAL_SUM:0,LOSS_SUM:0,ARB_PAYOUT:0,NORMAL_PAYOUT:0};
+    summary[date][status]++; summary[date].TOTAL++;
+    if(status==="ARB"){summary[date].ARB_SUM+=bet;summary[date].ARB_PAYOUT+=payout;}
+    else if(status==="NORMAL"){summary[date].NORMAL_SUM+=bet;summary[date].NORMAL_PAYOUT+=payout;}
+    else {summary[date].LOSS_SUM+=bet;}
+
+    globalBets.push({dateTime,date,settled,created,vendor,game,bet,winLossStr,profit,turnover,payout,multiplierNum,multiplier,status,rowClass});
+  });
+
+  renderSummary(summary);
+  applyFilter('ALL');
+  document.getElementById("filters").style.display="block";
+  setActiveButton('ALL');
+}
+
+function renderTable(bets){
+  let html=`<h2>Crash Bets Table</h2><table><thead><tr>
+  <th>DateTime</th><th>Settled</th><th>Create</th><th>Vendor</th><th>Game</th>
+  <th>Bet</th><th>Win/Loss</th><th>Profit</th><th>Turnover</th>
+  <th class="highlight">Payout</th><th class="highlight">Multiplier</th><th class="highlight">Status</th></tr></thead><tbody>`;
+  if(!bets.length) html+=`<tr><td colspan="12">No bets to show.</td></tr>`;
+  else bets.forEach(b=>{
+    const multiplierClass=b.status==="ARB"?"highlight row-arb":"highlight";
+    html+=`<tr class="${b.rowClass}">
+      <td>${escapeHtml(b.dateTime)}</td><td>${escapeHtml(b.settled)}</td><td>${escapeHtml(b.created)}</td>
+      <td>${escapeHtml(b.vendor)}</td><td>${escapeHtml(b.game)}</td>
+      <td>${b.bet.toFixed(2)}</td><td>${escapeHtml(b.winLossStr)}</td><td>${b.profit.toFixed(2)}</td><td>${b.turnover.toFixed(2)}</td>
+      <td class="highlight">${b.payout.toFixed(2)}</td><td class="${multiplierClass}">${b.multiplier}</td><td class="highlight">${b.status}</td></tr>`;
+  });
+  html+="</tbody></table>";
+  document.getElementById("result").innerHTML=html;
+}
+
+function renderSummary(summary){
+  const keys=Object.keys(summary).sort();
+  let html=`<h2>Crash Games Summary (Count & Sum)</h2><div style="display:flex;flex-wrap:wrap;gap:20px;">
+  <div style="flex:1;min-width:300px;"><table><thead><tr><th>Date</th><th>ARB</th><th>NORMAL</th><th>LOSS</th><th>Total</th></tr></thead><tbody>`;
+  keys.forEach(d=>{
+    const s=summary[d];
+    html+=`<tr>
+      <td>${d}</td>
+      <td style="color:#cc99ff">${s.ARB}</td>
+      <td style="color:#3399ff">${s.NORMAL}</td>
+      <td style="color:#ff6666">${s.LOSS}</td>
+      <td>${s.TOTAL}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div><div style="flex:1;min-width:300px;"><table><thead><tr><th>Date</th><th>ARB Bet Sum</th><th>ARB Payout</th><th>NORMAL Bet Sum</th><th>NORMAL Payout</th><th>LOSS Bet Sum</th></tr></thead><tbody>`;
+  keys.forEach(d=>{
+    const s=summary[d];
+    html+=`<tr>
+      <td>${d}</td>
+      <td style="color:#cc99ff">${s.ARB_SUM.toFixed(2)}</td>
+      <td style="color:#cc99ff">${s.ARB_PAYOUT.toFixed(2)}</td>
+      <td style="color:#3399ff">${s.NORMAL_SUM.toFixed(2)}</td>
+      <td style="color:#3399ff">${s.NORMAL_PAYOUT.toFixed(2)}</td>
+      <td style="color:#ff6666">${s.LOSS_SUM.toFixed(2)}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  document.getElementById("summary").innerHTML=html;
+}
+
+function applyFilter(type){
+  setActiveButton(type);
+  const dateInput=toISODate(document.getElementById('dateFilter')?.value||"");
+  const search=(document.getElementById('searchInput')?.value||"").toLowerCase();
+  let pool=dateInput?globalBets.filter(b=>b.date===dateInput):globalBets.slice();
+  if(search) pool=pool.filter(b=>Object.values(b).some(v=>String(v).toLowerCase().includes(search)));
+  if(!pool.length)return renderTable([]);
+  let res=[];
+  switch(type){
+    case'ALL':res=pool;break;
+    case'ARB':case'NORMAL':case'LOSS':res=pool.filter(b=>b.status===type);break;
+    case'HIGHEST':res=pool.filter(b=>b.multiplierNum===Math.max(...pool.map(x=>x.multiplierNum||0)));break;
+    case'LOWEST':{const p=pool.filter(x=>x.multiplierNum>0);const min=p.length?Math.min(...p.map(x=>x.multiplierNum)):0;res=pool.filter(b=>b.multiplierNum===min);break;}
+    case'HIGH_PAYOUT':res=pool.filter(b=>b.payout===Math.max(...pool.map(x=>x.payout||0)));break;
+    case'LOW_PAYOUT':{const p=pool.filter(x=>x.payout>0);const min=p.length?Math.min(...p.map(x=>x.payout)):0;res=pool.filter(b=>b.payout===min);break;}
+    case'HIGH_BET':res=pool.filter(b=>b.bet===Math.max(...pool.map(x=>x.bet||0)));break;
+    case'LOW_BET':{const p=pool.filter(x=>x.bet>0);const min=p.length?Math.min(...p.map(x=>x.bet)):0;res=pool.filter(b=>b.bet===min);break;}
+    case'HIGH_WIN':res=pool.filter(b=>b.profit===Math.max(...pool.map(x=>x.profit||0)));break;
+    case'LOW_WIN':{const p=pool.filter(x=>x.profit>0);const min=p.length?Math.min(...p.map(x=>x.profit)):0;res=pool.filter(b=>b.profit===min);break;}
+  }
+  renderTable(res);
+}
+
+function filterByDate(){const i=document.getElementById('dateFilter').value;if(!i)return alert("Pick a date.");applyFilter(getActiveButtonType()||'ALL');}
+function clearDateFilter(){document.getElementById('dateFilter').value="";applyFilter('ALL');setActiveButton('ALL');}
+function clearSearch(){document.getElementById('searchInput').value="";applyFilter(getActiveButtonType()||'ALL');}
+function setActiveButton(t){document.querySelectorAll('#filters button[data-type]').forEach(b=>b.classList.toggle('active',b.dataset.type===t));}
+function getActiveButtonType(){const b=document.querySelector('#filters button[data-type].active');return b?b.dataset.type:null;}
+function escapeHtml(s){return String(s||"").replace(/[&<>"'`=\/]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));}
+document.addEventListener("DOMContentLoaded",()=>{const input=document.getElementById("searchInput");if(input)input.addEventListener("input",()=>applyFilter(getActiveButtonType()||'ALL'));});
+</script>
+
+</body>
+</html>
