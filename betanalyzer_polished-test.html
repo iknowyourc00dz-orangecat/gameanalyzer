@@ -58,7 +58,6 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
 	<option value="megaball">Mega Ball</option>
 	<option value="lightningdice">Lightning Dice</option>
 	<option value="crazyballs">Crazy Balls</option>
-	<option value="dtp">Dragon Tiger Phoenix</option>
   </optgroup>
 
   <!-- KingMaker -->
@@ -69,7 +68,6 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
      <option value="cointoss">Coin Toss</option>
 	 <option value="colorgame">Color Game</option>
 	 <option value="andarbahar">Andar Bahar</option>
-	 	<option value="ft">Fan Tan (KM)</option>
   </optgroup>
 
   <!-- Pragmatic Play -->
@@ -1028,60 +1026,66 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
     const betSummary = {};
     let totalStake = 0, totalPayout = 0;
 
+    // Parse JSON safely
     const data = JSON.parse(jsonText);
     const bets = Array.isArray(data) ? data : [data];
 
+    // Process each bet entry
     for (const item of bets) {
       if (!item.betType) continue;
 
       const parts = item.betType.split(",").map(s => s.trim());
-      const totalProfit = parseFloat(item.profit) || 0;
-      const totalStakeForBet = parts.reduce((acc, p) => {
-        const m = p.match(/^sud-\w+\s*:\s*(\d+(\.\d+)?)/);
-        return acc + (m ? parseFloat(m[1]) : 0);
-      }, 0);
 
       for (const part of parts) {
-        const match = part.match(/^sud-(\w+)\s*:\s*(\d+(\.\d+)?)/i);
+        const match = part.match(/^sud-(\w+)\s*:\s*(\d+(\.\d+)?)(?:\|payout=(\d+(\.\d+)?))?$/i);
         if (!match) continue;
 
         let betName = match[1].toLowerCase();
         const stake = parseFloat(match[2]) || 0;
+        let payout = parseFloat(match[4]);
 
+        // ---------- FIXED PAYOUT LOGIC ----------
+        if (isNaN(payout)) {
+          const profit = parseFloat(item.profit) || 0;
+          const gameResult = (item.gameResult || "").toLowerCase();
+
+          if (gameResult === "lose") payout = 0;
+          else if (gameResult === "win") payout = stake + Math.max(profit, 0);
+          else payout = 0; // default fallback
+        }
+
+        // Map word-based numbers to digits
         const numMap = {
           "two":"2","three":"3","four":"4","five":"5","six":"6",
           "seven":"7","eight":"8","nine":"9","ten":"10","eleven":"11"
         };
         if (numMap[betName]) betName = numMap[betName];
 
-        // Determine numbers covered
+        // ---------- FIXED NUMBER COVERAGE ----------
         let numbersCovered = [];
         if (betName === "up") numbersCovered = ["8","9","10","11"];
         else if (betName === "down") numbersCovered = ["2","3","4","5","6"];
-        else numbersCovered = [betName];
+        else numbersCovered = [betName]; // 'seven' or specific number
 
-        // Proportional profit per bet
-        const profitShare = (stake / totalStakeForBet) * totalProfit;
-        const payoutPerNumber = (stake + profitShare) / numbersCovered.length;
-        const stakePerNumber = stake / numbersCovered.length;
-
+        // Record each covered number
         numbersCovered.forEach(num => {
           if (!betSummary[num]) betSummary[num] = { stake: 0, payout: 0 };
-          betSummary[num].stake += stakePerNumber;
-          betSummary[num].payout += payoutPerNumber;
+          betSummary[num].stake += stake;
+          betSummary[num].payout += payout;
         });
 
         totalStake += stake;
-        totalPayout += stake + profitShare;
+        totalPayout += payout;
       }
     }
 
+    // Calculate coverage stats
     const covered = POSSIBLE_NUMBERS.filter(n => betSummary[n]);
     const uncovered = POSSIBLE_NUMBERS.filter(n => !betSummary[n]);
     const coveragePercent = (covered.length / POSSIBLE_NUMBERS.length) * 100;
     const isArb = coveragePercent >= 85;
 
-    // Render Result
+    // ---------- Render Result ----------
     result.innerHTML = `
       <div class="section">
         <h3>🎲 7 Up 7 Down Bets Table</h3>
@@ -1093,8 +1097,10 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
             ${POSSIBLE_NUMBERS.map(num => {
               const bet = betSummary[num];
               let status = '<span class="badge badge-notbet">No Wager</span>';
-              if (bet) status = bet.payout > 0 ? '<span class="badge badge-win" style="color:black;">Win</span>'
-                                               : '<span class="badge badge-lost" style="color:red;">Lost</span>';
+              if (bet) {
+                if (bet.payout > 0) status = '<span class="badge badge-win" style="color:green;">Win</span>';
+                else status = '<span class="badge badge-lost" style="color:red;">Lost</span>';
+              }
               return `
                 <tr>
                   <td>${num}</td>
@@ -1139,6 +1145,7 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
       </div>
     `;
 
+    // Badge display
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveragePercent.toFixed(2)}%)`;
 
@@ -1148,8 +1155,6 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
     badge.textContent = "Error";
   }
 }
-
-
 
 // ---------- Call when selected ----------
 if (game === "sevenupsevendown") {
@@ -1958,33 +1963,38 @@ if (game === "kingmaker32") {
 
 
 
-
-// ----------Lightning Storm EVO----------
+// lightnight storm
 function LightningStormBets(jsonText, result, badge) {
   try {
-    const MAX_POSITIONS = 20;
-    const TOTAL_CODES = Array.from({ length: MAX_POSITIONS }, (_, i) => `LSt_${i + 1}`);
+    // ---------- Total available positions ----------
+    const MAIN_CODES = Array.from({ length: 20 }, (_, i) => `LSt_${i + 1}`);
+    const BONUS_CODES = ["LSt_EvenMoney", "LSt_StormChaser", "LSt_XChaser"];
 
     const data = JSON.parse(jsonText);
     const betSummary = {};
-    let totalStake = 0;
-    let totalPayout = 0;
+    let totalStakeMain = 0;
+    let totalPayoutMain = 0;
 
+    // ---------- Summarize bets ----------
     data.forEach(bet => {
       const { code, stake, payout } = bet;
       if (!betSummary[code]) betSummary[code] = { stake: 0, payout: 0 };
       betSummary[code].stake += Number(stake || 0);
       betSummary[code].payout += Number(payout || 0);
-      totalStake += Number(stake || 0);
-      totalPayout += Number(payout || 0);
+
+      if (MAIN_CODES.includes(code)) {
+        totalStakeMain += Number(stake || 0);
+        totalPayoutMain += Number(payout || 0);
+      }
     });
 
-    const covered = Object.keys(betSummary);
-    const uncovered = TOTAL_CODES.filter(c => !covered.includes(c));
-    const coveragePercent = (covered.length / TOTAL_CODES.length) * 100;
+    // ---------- Coverage ----------
+    const coveredMain = MAIN_CODES.filter(c => betSummary[c]);
+    const uncoveredMain = MAIN_CODES.filter(c => !betSummary[c]);
+    const coveragePercent = (coveredMain.length / MAIN_CODES.length) * 100;
     const isArb = coveragePercent >= 85;
 
-    // ---------- CSS Styles ----------
+    // ---------- CSS ----------
     const styles = `
       <style>
         .ls-section { margin-bottom: 20px; font-family: 'Segoe UI', Tahoma, sans-serif; }
@@ -2000,34 +2010,37 @@ function LightningStormBets(jsonText, result, badge) {
         .status-arb { background-color: #0f0; border: 2px solid #0f0; color: #000; }
         .status-notarb { background-color: #f00; border: 2px solid #f00; color: #000; }
         .status-warning { background-color: #ffa500; border: 2px solid #ffa500; color: #000; }
+        .bonus-win { background-color: #0f3; color: #000; font-weight: bold; }
+        .bonus-lose { background-color: #f03; color: #000; font-weight: bold; }
+        .bonus-no { background-color: #555; color: #fff; }
+        .uncovered { background-color: #333; color: #fff; }
       </style>
     `;
 
-    // ---------- Covered Table ----------
-    const coveredTable = `
+    // ---------- Main Covered Table ----------
+    const mainTable = `
       <div class="ls-section">
-        <h3>⚡ Covered Positions (${covered.length}/${TOTAL_CODES.length})</h3>
+        <h3>⚡ Covered Positions (Numbers 1–20: ${coveredMain.length}/20)</h3>
         <table class="ls-table">
           <thead><tr><th>Code</th><th>Stake</th><th>Payout</th><th>Net</th><th>Status</th></tr></thead>
           <tbody>
-            ${covered.map(c => {
+            ${coveredMain.map(c => {
               const b = betSummary[c];
               const net = b.payout - b.stake;
-              const status = b.payout > 0 ? 'WIN' : 'LOSE';
               const color = b.payout > 0 ? '#0f0' : '#f00';
               return `<tr>
                 <td>${c}</td>
                 <td>${b.stake}</td>
                 <td>${b.payout.toFixed(2)}</td>
                 <td>${net.toFixed(2)}</td>
-                <td style="color:${color}; font-weight:bold;">${status}</td>
+                <td style="color:${color}; font-weight:bold;">${b.payout>0?'WIN':'LOSE'}</td>
               </tr>`;
             }).join('')}
             <tr>
               <th>Total</th>
-              <th>${totalStake}</th>
-              <th>${totalPayout.toFixed(2)}</th>
-              <th>${(totalPayout-totalStake).toFixed(2)}</th>
+              <th>${totalStakeMain}</th>
+              <th>${totalPayoutMain.toFixed(2)}</th>
+              <th>${(totalPayoutMain - totalStakeMain).toFixed(2)}</th>
               <th>Coverage: ${coveragePercent.toFixed(2)}%</th>
             </tr>
           </tbody>
@@ -2035,27 +2048,63 @@ function LightningStormBets(jsonText, result, badge) {
       </div>
     `;
 
-    // ---------- Uncovered Table ----------
+    // ---------- Uncovered Main Table ----------
     const uncoveredTable = `
       <div class="ls-section">
-        <h3>🚫 Not Covered Codes (${uncovered.length}/${TOTAL_CODES.length})</h3>
+        <h3>🚫 Uncovered Positions (Numbers 1–20: ${uncoveredMain.length})</h3>
         <table class="ls-table">
-          <thead><tr><th>Position</th></tr></thead>
+          <thead><tr><th>Code</th></tr></thead>
           <tbody>
-            ${uncovered.map(c => `<tr><td>${c}</td></tr>`).join('')}
+            ${uncoveredMain.map(c => `<tr class="uncovered"><td>${c}</td></tr>`).join('')}
           </tbody>
         </table>
       </div>
     `;
 
-    // ---------- Update DOM ----------
-    result.innerHTML = styles + coveredTable + uncoveredTable;
+    // ---------- Bonus Bets Table ----------
+    const bonusTable = `
+      <div class="ls-section">
+        <h3>💥 Bonus Bets</h3>
+        <table class="ls-table">
+          <thead><tr><th>Bonus Code</th><th>Picked</th><th>Stake</th><th>Payout</th><th>Net</th><th>Status</th></tr></thead>
+          <tbody>
+            ${BONUS_CODES.map(c => {
+              const b = betSummary[c];
+              if (b) {
+                const net = b.payout - b.stake;
+                const className = b.payout>0 ? 'bonus-win' : 'bonus-lose';
+                return `<tr class="${className}">
+                  <td>${c}</td>
+                  <td>✅ YES</td>
+                  <td>${b.stake}</td>
+                  <td>${b.payout.toFixed(2)}</td>
+                  <td>${net.toFixed(2)}</td>
+                  <td>${b.payout>0?'WIN':'LOSE'}</td>
+                </tr>`;
+              } else {
+                return `<tr class="bonus-no">
+                  <td>${c}</td>
+                  <td>❌ NO</td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>-</td>
+                </tr>`;
+              }
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // ---------- Render ----------
+    result.innerHTML = styles + mainTable + uncoveredTable + bonusTable;
 
     // ---------- Badge ----------
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} | ${coveragePercent.toFixed(2)}%`;
 
-  } catch(e) {
+  } catch (e) {
     result.innerHTML = `<p>⚠️ Invalid JSON or format: ${e.message}</p>`;
     badge.className = "status-badge status-warning";
     badge.textContent = "Error";
@@ -2063,7 +2112,7 @@ function LightningStormBets(jsonText, result, badge) {
 }
 
 
-// ---------- calling LightningStormBets ----------
+
 if (game === "lightningstorm") {
   LightningStormBets(jsonText, result, badge);
 }
@@ -3097,240 +3146,6 @@ function kingmakerCoinToss(jsonText, result, badge) {
 if (game === "cointoss") {
   kingmakerCoinToss(jsonText, result, badge);
 }
-
-
-
-// ---------- Dragon Tiger Phoenix Analyzer ----------
-if (game === "dtp") {
-  const boardOptions = new Set([
-    "TRN_Q", // Dragon
-    "TRN_Z", // Tiger
-    "TRN_Y"  // Phoenix
-  ]);
-
-  const betDescriptions = {
-    TRN_Q: "Dragon — wins if Dragon card is higher",
-    TRN_Z: "Tiger — wins if Tiger card is higher",
-    TRN_Y: "Phoenix — special side bet (Evolution feature)"
-  };
-
-  try {
-    const data = JSON.parse(jsonText);
-
-    // Filter valid bets
-    const betsUsed = data.filter(b => boardOptions.has(b.code));
-    const uniqueBets = [...new Set(betsUsed.map(b => b.code))];
-
-    // Board coverage % (1/3, 2/3, 3/3)
-    const coveragePercent = (uniqueBets.length / boardOptions.size) * 100;
-
-    // Unused bets
-    const unusedBets = [...boardOptions].filter(b => !uniqueBets.includes(b));
-
-    // Total stake & payout
-    const totalStake = betsUsed.reduce((sum, b) => sum + Number(b.stake || 0), 0);
-    const totalPayout = betsUsed.reduce((sum, b) => sum + Number(b.payout || 0), 0);
-    const net = (totalPayout - totalStake).toFixed(2);
-
-    // ---------- ARB Logic ----------
-    // Strict: ARB only if all three sides are covered
-    const isArb = uniqueBets.length > 2; // >2 = all 3 sides
-
-    // Determine coverage pattern
-    const coveragePattern = uniqueBets.join(" + ") || "No bets";
-
-    // ---------- Render Table ----------
-    result.innerHTML = `
-      <div class="section"><h3>🐉 Dragon Tiger Phoenix Bets Table</h3>
-        <table class="table">
-          <tr><th>Bet Code</th><th>Description</th><th>Stake</th><th>Payout</th><th>Status</th></tr>
-          ${betsUsed.map(b => `
-            <tr>
-              <td>${b.code}</td>
-              <td>${betDescriptions[b.code] || "-"}</td>
-              <td>${b.stake}</td>
-              <td>${b.payout}</td>
-              <td>${b.payout > 0
-                ? '<span class="badge badge-win">Win</span>'
-                : '<span class="badge badge-loss">Lost</span>'}</td>
-            </tr>`).join("")}
-          <tr>
-            <th colspan="2">Total</th>
-            <td>${totalStake}</td>
-            <td>${totalPayout}</td>
-            <td>Net: ${net}</td>
-          </tr>
-        </table>
-      </div>
-
-      <div class="section"><h3>🟢 Coverage</h3>
-        <table class="table">
-          <tr><th>Metric</th><th>Value</th></tr>
-          <tr><td>Active Bets</td><td>${uniqueBets.length} / ${boardOptions.size}</td></tr>
-          <tr><td>Coverage Pattern</td><td>${coveragePattern}</td></tr>
-          <tr><td>Board Coverage</td><td>${coveragePercent.toFixed(2)}%</td></tr>
-          <tr><td>Unused Bets</td><td>${unusedBets.join(", ") || "-"}</td></tr>
-        </table>
-      </div>
-    `;
-
-    // ---------- Badge Status ----------
-    if (isArb) {
-      badge.className = "status-badge status-arb";
-      badge.textContent = `ARB ✅ (All 3 sides covered, ${coveragePercent.toFixed(2)}%)`;
-    } else {
-      badge.className = "status-badge status-notarb";
-      badge.textContent = `NOT ARB ❌ (${coveragePattern}, ${coveragePercent.toFixed(2)}%)`;
-    }
-
-  } catch (err) {
-    result.innerHTML = `<p>⚠️ Error parsing Dragon Tiger Phoenix JSON: ${err.message}</p>`;
-    badge.className = "status-badge status-warning";
-    badge.textContent = "Error";
-  }
-}
-
-
-
-
-// ---------- fantan kingmaker ----------
-function ftBetAnalyzer(jsonText, result, badge) {
-  try {
-    // Total possible outcome numbers
-    const POSSIBLE_NUMBERS = ["1", "2", "3", "4"];
-
-    const betSummary = {};
-    let totalStake = 0, totalPayout = 0;
-    let totalProfit = 0; // Use profit from JSON
-
-    // Parse JSON
-    const data = JSON.parse(jsonText);
-    const bets = Array.isArray(data) ? data : [data];
-
-    const numbersCoveredSet = new Set();
-
-    for (const item of bets) {
-      if (!item.betType) continue;
-
-      totalProfit += parseFloat(item.profit) || 0;
-
-      const parts = item.betType.split(",").map(s => s.trim());
-
-      for (const part of parts) {
-        const match = part.match(/^([\w\-]+)\s*:\s*(\d+(\.\d+)?)/i);
-        if (!match) continue;
-
-        const betName = match[1].toLowerCase();
-        const stake = parseFloat(match[2]) || 0;
-
-        // ---------- FIXED PAYOUT LOGIC ----------
-        let payout = stake;
-        const profit = parseFloat(item.profit) || 0;
-        const gameResult = (item.gameResult || "").toLowerCase();
-        if (gameResult === "lose") payout = 0;
-        else if (gameResult === "win") payout = stake + Math.max(profit, 0);
-
-        if (!betSummary[betName]) betSummary[betName] = { stake: 0, payout: 0 };
-
-        betSummary[betName].stake += stake;
-        betSummary[betName].payout += payout;
-
-        totalStake += stake;
-        totalPayout += payout;
-
-        // Extract numbers for coverage
-        const nums = betName.match(/\d+/g) || [];
-        nums.forEach(n => numbersCoveredSet.add(n));
-      }
-    }
-
-    // Coverage
-    const coveredNumbers = POSSIBLE_NUMBERS.filter(n => numbersCoveredSet.has(n));
-    const uncoveredNumbers = POSSIBLE_NUMBERS.filter(n => !numbersCoveredSet.has(n));
-    const coveragePercent = (coveredNumbers.length / POSSIBLE_NUMBERS.length) * 100;
-    const isArb = coveragePercent >= 85;
-
-    const betNumbersMap = {};
-    Object.keys(betSummary).forEach(bet => {
-      const nums = bet.match(/\d+/g);
-      betNumbersMap[bet] = nums ? nums.join(",") : "";
-    });
-
-    // ---------- Render Result ----------
-    result.innerHTML = `
-      <div class="section">
-        <h3>🎲 FT Bets Table</h3>
-        <table class="table" border="1" cellpadding="5">
-          <thead>
-            <tr>
-              <th>Bet</th>
-              <th>Stake</th>
-              <th>Payout</th>
-              <th>Status</th>
-              <th>Outcome Numbers</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.keys(betSummary).map(bet => {
-              const b = betSummary[bet];
-              const status = b.payout > 0
-                ? '<span class="badge badge-win" style="background-color:yellow;color:black;">Win</span>'
-                : '<span class="badge badge-lost" style="color:red;">Lost</span>';
-              return `<tr>
-                        <td>${bet}</td>
-                        <td>${b.stake.toFixed(2)}</td>
-                        <td>${b.payout.toFixed(2)}</td>
-                        <td>${status}</td>
-                        <td>${betNumbersMap[bet]}</td>
-                      </tr>`;
-            }).join("")}
-            <tr>
-              <th>Total</th>
-              <td>${totalStake.toFixed(2)}</td>
-              <td>${totalPayout.toFixed(2)}</td>
-              <td colspan="2">Net: ${totalProfit.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="section">
-        <h3>🟢 Covered Numbers (${coveredNumbers.length}/${POSSIBLE_NUMBERS.length})</h3>
-        <table class="table" border="1" cellpadding="5">
-          <thead><tr><th>Number</th></tr></thead>
-          <tbody>
-            ${coveredNumbers.map(n => `<tr><td>${n}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="section">
-        <h3>🚫 Not Covered Numbers (${uncoveredNumbers.length}/${POSSIBLE_NUMBERS.length})</h3>
-        <table class="table" border="1" cellpadding="5">
-          <thead><tr><th>Number</th></tr></thead>
-          <tbody>
-            ${uncoveredNumbers.map(n => `<tr><td>${n}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    // Badge
-    badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
-    badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveragePercent.toFixed(2)}%)`;
-
-  } catch (err) {
-    result.innerHTML = `<p>⚠️ Error parsing FT JSON: ${err.message}</p>`;
-    badge.className = "status-badge status-warning";
-    badge.textContent = "Error";
-  }
-}
-
-// ---------- fantan kingmaker ----------
-if (game === "ft") {
-  ftBetAnalyzer(jsonText, result, badge);
-}
-
 
 
 }
