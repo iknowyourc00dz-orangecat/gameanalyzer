@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arb / Turnover Calculator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+  body { font-family: 'Orbitron', Arial, sans-serif; background:#0b0c1a; color:#0ff; padding:30px; }
+  h1 { font-size:24px; margin-bottom:20px; color:#0ff; text-shadow: 0 0 5px #0ff, 0 0 10px #0ff; }
+  .box { background:#0a0b15; padding:20px; border-radius:10px; box-shadow:0 0 15px #0ff; max-width:900px; margin:auto; border:1px solid #0ff; }
+  label { display:block; margin-top:12px; font-weight:bold; color:#0ff; }
+  input[type="number"], input[type="text"] {
+    width:100%; padding:10px; border-radius:6px; border:1px solid #0ff; margin-top:5px; font-size:14px; background:#0a0b15; color:#0ff;
+  }
+  button { margin-top:18px; background:#00f0ff; color:#000; border:none; padding:10px 20px; font-size:15px; border-radius:8px; cursor:pointer; box-shadow:0 0 10px #0ff; }
+  button:hover { background:#00d4ff; }
+  table { width:100%; border-collapse:collapse; margin-top:25px; font-size:14px; color:#0ff; border:1px solid #0ff; }
+  th, td { border:1px solid #0ff; padding:10px; text-align:left; }
+  th { background:#001022; color:#0ff; text-shadow: 0 0 5px #0ff; }
+  tr:nth-child(even) { background:#00101a; }
+  .leave { color:#00ff99; font-weight:600; text-shadow:0 0 5px #00ff99; }
+  .warn { color:#ff3399; font-weight:600; text-shadow:0 0 5px #ff3399; }
+  .none { color:#9999ff; font-weight:600; text-shadow:0 0 5px #9999ff; }
+  .copyBtn { margin-left:8px; padding:2px 6px; font-size:12px; border-radius:6px; background:#00f0ff; color:#000; cursor:pointer; border:none; box-shadow:0 0 5px #0ff; }
+  .copyBtn:hover { background:#00d4ff; }
+</style>
+</head>
+<body>
+
+<div class="box">
+  <h1>Arbitrage / Turnover Checker</h1>
+
+  <label>Player Name (optional):</label>
+  <input type="text" id="player" placeholder="e.g. munna33s">
+
+  <label>Turnover Requirement (BDT):</label>
+  <input type="number" id="turnover" placeholder="e.g. 6800" step="0.01">
+
+  <label>Arb Bets (BDT):</label>
+  <input type="number" id="arb" placeholder="e.g. 11126" step="0.01">
+
+  <button onclick="calculate()">Add Result</button>
+
+  <table id="results">
+    <thead>
+      <tr>
+        <th>Player</th>
+        <th>Turnover Requirement</th>
+        <th>Arb Bets</th>
+        <th>Arb %</th>
+        <th>Remaining Turnover</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+function formatMoney(n) {
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Copy text using temporary textarea (works everywhere)
+function copyAction(button) {
+  const text = button.getAttribute("data-action");
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+  alert("Action copied!");
+}
+
+function calculate() {
+  const player = document.getElementById("player").value.trim() || "-";
+  const turnover = parseFloat(document.getElementById("turnover").value);
+  const arb = parseFloat(document.getElementById("arb").value);
+  if (isNaN(turnover) || isNaN(arb) || turnover <= 0) {
+    alert("Please enter valid numbers for turnover and arb bets.");
+    return;
+  }
+
+  const arbPct = (arb / turnover) * 100;
+  const remaining = turnover - arb;
+  let action = "";
+  let cssClass = "";
+
+  if (arbPct >= 70) {
+    action = "Arbitrage | Leave Deposit";
+    cssClass = "leave";
+  } else if (arbPct < 10) {
+    action = "Arb % < 10%. No significance";
+    cssClass = "none";
+  } else if (remaining > 0) {
+    action = `Please complete remaining turnover BDT ${formatMoney(remaining)} before withdrawal.`;
+    cssClass = "warn";
+  } else {
+    action = "Leave deposit as it meets requirements.";
+    cssClass = "leave";
+  }
+
+  const tbody = document.querySelector("#results tbody");
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td>${player}</td>
+    <td>${formatMoney(turnover)}</td>
+    <td>${formatMoney(arb)}</td>
+    <td>${arbPct.toFixed(2)}%</td>
+    <td>${remaining > 0 ? formatMoney(remaining) : "0"}</td>
+    <td class="${cssClass}">
+      ${action}
+      <button class="copyBtn" data-action="${action}">Copy</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+
+  tr.querySelector(".copyBtn").addEventListener("click", function() {
+    copyAction(this);
+  });
+
+  // Clear inputs
+  document.getElementById("arb").value = "";
+  document.getElementById("turnover").value = "";
+  document.getElementById("player").value = "";
+}
+</script>
+
+</body>
+</html>
