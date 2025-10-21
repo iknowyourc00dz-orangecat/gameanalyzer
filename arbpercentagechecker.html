@@ -5,25 +5,104 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arb / Turnover Calculator</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
-  body { font-family: 'Orbitron', Arial, sans-serif; background:#0b0c1a; color:#0ff; padding:30px; }
-  h1 { font-size:24px; margin-bottom:20px; color:#0ff; text-shadow: 0 0 5px #0ff, 0 0 10px #0ff; }
-  .box { background:#0a0b15; padding:20px; border-radius:10px; box-shadow:0 0 15px #0ff; max-width:900px; margin:auto; border:1px solid #0ff; }
-  label { display:block; margin-top:12px; font-weight:bold; color:#0ff; }
-  input[type="number"], input[type="text"] {
-    width:100%; padding:10px; border-radius:6px; border:1px solid #0ff; margin-top:5px; font-size:14px; background:#0a0b15; color:#0ff;
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+  body { 
+    font-family: 'Poppins', Arial, sans-serif; 
+    background:#0b0c1a; 
+    color:#bdfcff; 
+    padding:30px; 
+    line-height:1.6;
   }
-  button { margin-top:18px; background:#00f0ff; color:#000; border:none; padding:10px 20px; font-size:15px; border-radius:8px; cursor:pointer; box-shadow:0 0 10px #0ff; }
-  button:hover { background:#00d4ff; }
-  table { width:100%; border-collapse:collapse; margin-top:25px; font-size:14px; color:#0ff; border:1px solid #0ff; }
-  th, td { border:1px solid #0ff; padding:10px; text-align:left; }
-  th { background:#001022; color:#0ff; text-shadow: 0 0 5px #0ff; }
+  h1 { 
+    font-size:26px; 
+    margin-bottom:20px; 
+    color:#00e6ff; 
+    text-shadow: 0 0 4px #00e6ff; 
+    text-align:center;
+  }
+  .box { 
+    background:#0a0b15; 
+    padding:25px; 
+    border-radius:10px; 
+    box-shadow:0 0 8px #00e6ff; 
+    max-width:900px; 
+    margin:auto; 
+    border:1px solid #00e6ff; 
+  }
+  label { 
+    display:block; 
+    margin-top:15px; 
+    font-weight:600; 
+    color:#9ef; 
+    font-size:15px;
+  }
+  input[type="number"], input[type="text"] {
+    width:100%; 
+    padding:12px; 
+    border-radius:8px; 
+    border:1px solid #00bcd4; 
+    margin-top:6px; 
+    font-size:15px; 
+    background:#0a0b15; 
+    color:#bdfcff; 
+    outline:none;
+  }
+  input::placeholder {
+    color:#6fbfff; 
+    opacity:0.7;
+  }
+  button { 
+    margin-top:20px; 
+    background:#00e6ff; 
+    color:#000; 
+    border:none; 
+    padding:12px 22px; 
+    font-size:16px; 
+    border-radius:8px; 
+    cursor:pointer; 
+    box-shadow:0 0 5px #00e6ff; 
+    font-weight:600;
+  }
+  button:hover { background:#00c8ff; }
+
+  table { 
+    width:100%; 
+    border-collapse:collapse; 
+    margin-top:25px; 
+    font-size:15px; 
+    color:#bdfcff; 
+    border:1px solid #00bcd4; 
+  }
+  th, td { 
+    border:1px solid #00bcd4; 
+    padding:12px 10px; 
+    text-align:left; 
+  }
+  th { 
+    background:#001022; 
+    color:#00e6ff; 
+    text-shadow: 0 0 4px #00e6ff; 
+    font-weight:600;
+  }
   tr:nth-child(even) { background:#00101a; }
-  .leave { color:#00ff99; font-weight:600; text-shadow:0 0 5px #00ff99; }
-  .warn { color:#ff3399; font-weight:600; text-shadow:0 0 5px #ff3399; }
-  .none { color:#9999ff; font-weight:600; text-shadow:0 0 5px #9999ff; }
-  .copyBtn { margin-left:8px; padding:2px 6px; font-size:12px; border-radius:6px; background:#00f0ff; color:#000; cursor:pointer; border:none; box-shadow:0 0 5px #0ff; }
-  .copyBtn:hover { background:#00d4ff; }
+
+  /* Subtle glows for status only */
+  .leave { color:#00ff99; font-weight:600; text-shadow:0 0 3px #00ff99aa; }
+  .warn { color:#ff4da6; font-weight:600; text-shadow:0 0 3px #ff4da666; }
+  .none { color:#9999ff; font-weight:600; text-shadow:0 0 3px #9999ff55; }
+
+  .copyBtn { 
+    margin-left:10px; 
+    padding:4px 8px; 
+    font-size:13px; 
+    border-radius:6px; 
+    background:#00e6ff; 
+    color:#000; 
+    cursor:pointer; 
+    border:none; 
+    box-shadow:0 0 4px #00e6ff; 
+  }
+  .copyBtn:hover { background:#00c8ff; }
 </style>
 </head>
 <body>
@@ -32,13 +111,13 @@
   <h1>Arbitrage / Turnover Checker</h1>
 
   <label>Player Name (optional):</label>
-  <input type="text" id="player" placeholder="e.g. munna33s">
+  <input type="text" id="player" placeholder="e.g. username">
 
-  <label>Turnover Requirement (BDT):</label>
-  <input type="number" id="turnover" placeholder="e.g. 6800" step="0.01">
+  <label>Turnover Requirement:</label>
+  <input type="number" id="turnover" placeholder="e.g. 5500" step="0.01">
 
-  <label>Arb Bets (BDT):</label>
-  <input type="number" id="arb" placeholder="e.g. 11126" step="0.01">
+  <label>Arb Bets:</label>
+  <input type="number" id="arb" placeholder="e.g. 3200" step="0.01">
 
   <button onclick="calculate()">Add Result</button>
 
@@ -62,7 +141,6 @@ function formatMoney(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Copy text using temporary textarea (works everywhere)
 function copyAction(button) {
   const text = button.getAttribute("data-action");
   const textarea = document.createElement("textarea");
@@ -92,7 +170,7 @@ function calculate() {
     action = "Arbitrage | Leave Deposit";
     cssClass = "leave";
   } else if (arbPct < 10) {
-    action = "Arb % < 10%. No significance";
+    action = "Arb % < 10%. No significance (DO NOT copy this text)";
     cssClass = "none";
   } else if (remaining > 0) {
     action = `Arbitrage betting is against BH’s terms and conditions. Please complete the remaining turnover BDT ${formatMoney(remaining)} before withdrawal. (Kindly refer to the bonus’s TnC for the specific game regarding your turnover requirement)`;
@@ -121,7 +199,6 @@ function calculate() {
     copyAction(this);
   });
 
-  // Clear inputs
   document.getElementById("arb").value = "";
   document.getElementById("turnover").value = "";
   document.getElementById("player").value = "";
@@ -130,4 +207,3 @@ function calculate() {
 
 </body>
 </html>
-
