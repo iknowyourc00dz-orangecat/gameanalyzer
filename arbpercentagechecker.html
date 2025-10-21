@@ -65,6 +65,13 @@
   }
   button:hover { background:#00c8ff; }
 
+  #downloadBtn {
+    background:#00ff99;
+    box-shadow:0 0 5px #00ff99;
+    margin-left:10px;
+  }
+  #downloadBtn:hover { background:#00e68a; }
+
   table { 
     width:100%; 
     border-collapse:collapse; 
@@ -85,8 +92,8 @@
     font-weight:600;
   }
   tr:nth-child(even) { background:#00101a; }
+  tr:hover { background:#001a2a; }
 
-  /* Subtle glows for status only */
   .leave { color:#00ff99; font-weight:600; text-shadow:0 0 3px #00ff99aa; }
   .warn { color:#ff4da6; font-weight:600; text-shadow:0 0 3px #ff4da666; }
   .none { color:#9999ff; font-weight:600; text-shadow:0 0 3px #9999ff55; }
@@ -117,9 +124,12 @@
   <input type="number" id="turnover" placeholder="e.g. 5500" step="0.01">
 
   <label>Arb Bets:</label>
-  <input type="number" id="arb" placeholder="e.g. 3200" step="0.01">
+  <input type="number" id="arb" placeholder="e.g. 3500" step="0.01">
 
-  <button onclick="calculate()">Add Result</button>
+  <div style="display:flex; flex-wrap:wrap; gap:10px;">
+    <button onclick="calculate()">Add Result</button>
+    <button id="downloadBtn" onclick="downloadResults()">Download Results (CSV)</button>
+  </div>
 
   <table id="results">
     <thead>
@@ -170,10 +180,10 @@ function calculate() {
     action = "Arbitrage | Leave Deposit";
     cssClass = "leave";
   } else if (arbPct < 10) {
-    action = "Arb % < 10%. No significance (DO NOT copy this text)";
+    action = "Arb % < 10%. No significance. (DO NOT copy this text)";
     cssClass = "none";
   } else if (remaining > 0) {
-    action = `Arbitrage betting is against BH’s terms and conditions. Please complete the remaining turnover BDT ${formatMoney(remaining)} before withdrawal. (Kindly refer to the bonus’s TnC for the specific game regarding your turnover requirement)`;
+    action = `Arbitrage betting is against BH's terms and conditions. Please complete the remaining turnover BDT ${formatMoney(remaining)} before withdrawal.`;
     cssClass = "warn";
   } else {
     action = "Leave deposit as it meets requirements.";
@@ -202,6 +212,49 @@ function calculate() {
   document.getElementById("arb").value = "";
   document.getElementById("turnover").value = "";
   document.getElementById("player").value = "";
+}
+
+function downloadResults() {
+  const rows = document.querySelectorAll("#results tr");
+  if (rows.length <= 1) {
+    alert("No results to download yet!");
+    return;
+  }
+
+  const headers = ["Player", "Turnover Requirement", "Arb Bets", "Arb %", "Remaining Turnover", "Action"];
+  let csvContent = headers.join(",") + "\n";
+
+  rows.forEach((row, index) => {
+    if (index === 0) return; // skip header
+    const cols = row.querySelectorAll("td");
+    const line = Array.from(cols).map(td => {
+      // Only get text nodes, ignore buttons
+      let text = Array.from(td.childNodes)
+        .filter(n => n.nodeType === Node.TEXT_NODE)
+        .map(n => n.textContent.trim())
+        .join(" ");
+
+      // Replace fancy quotes with ASCII
+      text = text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+
+      // Escape double quotes for CSV
+      if (text.includes(",") || text.includes('"')) {
+        text = '"' + text.replace(/"/g, '""') + '"';
+      }
+      return text;
+    }).join(",");
+    csvContent += line + "\n";
+  });
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  link.href = URL.createObjectURL(blob);
+  link.download = `arb_turnover_results_${timestamp}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
 }
 </script>
 
