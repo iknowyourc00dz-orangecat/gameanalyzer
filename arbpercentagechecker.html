@@ -191,23 +191,42 @@ function calculate() {
   }
 
   const tbody = document.querySelector("#results tbody");
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td>${player}</td>
-    <td>${formatMoney(turnover)}</td>
-    <td>${formatMoney(arb)}</td>
-    <td>${arbPct.toFixed(2)}%</td>
-    <td>${remaining > 0 ? formatMoney(remaining) : "0"}</td>
-    <td class="${cssClass}">
+  let existingRow = null;
+
+  if (player !== "-") {
+    existingRow = Array.from(tbody.querySelectorAll("tr")).find(r => r.cells[0].textContent === player);
+  }
+
+  if (existingRow) {
+    existingRow.cells[1].textContent = formatMoney(turnover);
+    existingRow.cells[2].textContent = formatMoney(arb);
+    existingRow.cells[3].textContent = arbPct.toFixed(2) + "%";
+    existingRow.cells[4].textContent = remaining > 0 ? formatMoney(remaining) : "0";
+    existingRow.cells[5].innerHTML = `
       ${action}
       <button class="copyBtn" data-action="${action}">Copy</button>
-    </td>
-  `;
-  tbody.appendChild(tr);
-
-  tr.querySelector(".copyBtn").addEventListener("click", function() {
-    copyAction(this);
-  });
+    `;
+    existingRow.cells[5].querySelector(".copyBtn").addEventListener("click", function() {
+      copyAction(this);
+    });
+  } else {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${player}</td>
+      <td>${formatMoney(turnover)}</td>
+      <td>${formatMoney(arb)}</td>
+      <td>${arbPct.toFixed(2)}%</td>
+      <td>${remaining > 0 ? formatMoney(remaining) : "0"}</td>
+      <td class="${cssClass}">
+        ${action}
+        <button class="copyBtn" data-action="${action}">Copy</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector(".copyBtn").addEventListener("click", function() {
+      copyAction(this);
+    });
+  }
 
   document.getElementById("arb").value = "";
   document.getElementById("turnover").value = "";
@@ -225,19 +244,14 @@ function downloadResults() {
   let csvContent = headers.join(",") + "\n";
 
   rows.forEach((row, index) => {
-    if (index === 0) return; // skip header
+    if (index === 0) return;
     const cols = row.querySelectorAll("td");
     const line = Array.from(cols).map(td => {
-      // Only get text nodes, ignore buttons
       let text = Array.from(td.childNodes)
         .filter(n => n.nodeType === Node.TEXT_NODE)
         .map(n => n.textContent.trim())
         .join(" ");
-
-      // Replace fancy quotes with ASCII
       text = text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
-
-      // Escape double quotes for CSV
       if (text.includes(",") || text.includes('"')) {
         text = '"' + text.replace(/"/g, '""') + '"';
       }
@@ -260,4 +274,3 @@ function downloadResults() {
 
 </body>
 </html>
-
