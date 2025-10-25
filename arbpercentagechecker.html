@@ -146,7 +146,7 @@ tr:hover { background:#001a2a; }
     <tbody></tbody>
   </table>
 </div>
-
+<p><b>Note:</b>  <u>always situational</u> - it only checks if player will retake a certain turnover requirement, leave deposit or other action. we are the one who will manually check sum of arb in BO. action and decision making are still up to us. this is just for faster computation and checking.</p>
 <script>
 function formatMoney(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -271,7 +271,11 @@ function downloadResults() {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
+  
+  
 }
+
+
 </script>
 </body>
 </html>
