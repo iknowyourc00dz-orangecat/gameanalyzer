@@ -58,6 +58,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
 	<option value="megaball">Mega Ball</option>
 	<option value="lightningdice">Lightning Dice</option>
 	<option value="crazyballs">Crazy Balls</option>
+	<option value="dtp">Dragon Tiger Phoenix</option>
   </optgroup>
 
   <!-- KingMaker -->
@@ -68,6 +69,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
      <option value="cointoss">Coin Toss</option>
 	 <option value="colorgame">Color Game</option>
 	 <option value="andarbahar">Andar Bahar</option>
+	  <option value="ft">Fan Tan (KM)</option>
   </optgroup>
 
   <!-- Pragmatic Play -->
@@ -3150,6 +3152,244 @@ if (game === "cointoss") {
 
 
 
+// ---------- fantan kingmaker ----------
+function ftBetAnalyzer(jsonText, result, badge) {
+  try {
+    // Total possible outcome numbers
+    const POSSIBLE_NUMBERS = ["1", "2", "3", "4"];
+
+    const betSummary = {};
+    let totalStake = 0, totalPayout = 0;
+    let totalProfit = 0; // Use profit from JSON
+
+    // Parse JSON
+    const data = JSON.parse(jsonText);
+    const bets = Array.isArray(data) ? data : [data];
+
+    const numbersCoveredSet = new Set();
+
+    for (const item of bets) {
+      if (!item.betType) continue;
+
+      totalProfit += parseFloat(item.profit) || 0;
+
+      const parts = item.betType.split(",").map(s => s.trim());
+
+      for (const part of parts) {
+        const match = part.match(/^([\w\-]+)\s*:\s*(\d+(\.\d+)?)/i);
+        if (!match) continue;
+
+        const betName = match[1].toLowerCase();
+        const stake = parseFloat(match[2]) || 0;
+
+        // ---------- FIXED PAYOUT LOGIC ----------
+        let payout = stake;
+        const profit = parseFloat(item.profit) || 0;
+        const gameResult = (item.gameResult || "").toLowerCase();
+        if (gameResult === "lose") payout = 0;
+        else if (gameResult === "win") payout = stake + Math.max(profit, 0);
+
+        if (!betSummary[betName]) betSummary[betName] = { stake: 0, payout: 0 };
+
+        betSummary[betName].stake += stake;
+        betSummary[betName].payout += payout;
+
+        totalStake += stake;
+        totalPayout += payout;
+
+        // Extract numbers for coverage
+        const nums = betName.match(/\d+/g) || [];
+        nums.forEach(n => numbersCoveredSet.add(n));
+      }
+    }
+
+    // Coverage
+    const coveredNumbers = POSSIBLE_NUMBERS.filter(n => numbersCoveredSet.has(n));
+    const uncoveredNumbers = POSSIBLE_NUMBERS.filter(n => !numbersCoveredSet.has(n));
+    const coveragePercent = (coveredNumbers.length / POSSIBLE_NUMBERS.length) * 100;
+    const isArb = coveragePercent >= 85;
+
+    const betNumbersMap = {};
+    Object.keys(betSummary).forEach(bet => {
+      const nums = bet.match(/\d+/g);
+      betNumbersMap[bet] = nums ? nums.join(",") : "";
+    });
+
+    // ---------- Render Result ----------
+    result.innerHTML = `
+      <div class="section">
+        <h3>🎲 FT Bets Table</h3>
+        <table class="table" border="1" cellpadding="5">
+          <thead>
+            <tr>
+              <th>Bet</th>
+              <th>Stake</th>
+              <th>Payout</th>
+              <th>Status</th>
+              <th>Outcome Numbers</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.keys(betSummary).map(bet => {
+              const b = betSummary[bet];
+              const status = b.payout > 0
+                ? '<span class="badge badge-win" style="background-color:yellow;color:black;">Win</span>'
+                : '<span class="badge badge-lost" style="color:red;">Lost</span>';
+              return `<tr>
+                        <td>${bet}</td>
+                        <td>${b.stake.toFixed(2)}</td>
+                        <td>${b.payout.toFixed(2)}</td>
+                        <td>${status}</td>
+                        <td>${betNumbersMap[bet]}</td>
+                      </tr>`;
+            }).join("")}
+            <tr>
+              <th>Total</th>
+              <td>${totalStake.toFixed(2)}</td>
+              <td>${totalPayout.toFixed(2)}</td>
+              <td colspan="2">Net: ${totalProfit.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <h3>🟢 Covered Numbers (${coveredNumbers.length}/${POSSIBLE_NUMBERS.length})</h3>
+        <table class="table" border="1" cellpadding="5">
+          <thead><tr><th>Number</th></tr></thead>
+          <tbody>
+            ${coveredNumbers.map(n => `<tr><td>${n}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <h3>🚫 Not Covered Numbers (${uncoveredNumbers.length}/${POSSIBLE_NUMBERS.length})</h3>
+        <table class="table" border="1" cellpadding="5">
+          <thead><tr><th>Number</th></tr></thead>
+          <tbody>
+            ${uncoveredNumbers.map(n => `<tr><td>${n}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Badge
+    badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
+    badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveragePercent.toFixed(2)}%)`;
+
+  } catch (err) {
+    result.innerHTML = `<p>⚠️ Error parsing FT JSON: ${err.message}</p>`;
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+  }
+}
+
+// ---------- fantan kingmaker ----------
+if (game === "ft") {
+  ftBetAnalyzer(jsonText, result, badge);
+}
+
+	
+
+
+
+
+
+
+// ---------- Dragon Tiger Phoenix Analyzer ----------
+if (game === "dtp") {
+  const boardOptions = new Set([
+    "TRN_Q", // Dragon
+    "TRN_Z", // Tiger
+    "TRN_Y"  // Phoenix
+  ]);
+
+  const betDescriptions = {
+    TRN_Q: "Dragon — wins if Dragon card is higher",
+    TRN_Z: "Tiger — wins if Tiger card is higher",
+    TRN_Y: "Phoenix — special side bet (Evolution feature)"
+  };
+
+  try {
+    const data = JSON.parse(jsonText);
+
+    // Filter valid bets
+    const betsUsed = data.filter(b => boardOptions.has(b.code));
+    const uniqueBets = [...new Set(betsUsed.map(b => b.code))];
+
+    // Board coverage % (1/3, 2/3, 3/3)
+    const coveragePercent = (uniqueBets.length / boardOptions.size) * 100;
+
+    // Unused bets
+    const unusedBets = [...boardOptions].filter(b => !uniqueBets.includes(b));
+
+    // Total stake & payout
+    const totalStake = betsUsed.reduce((sum, b) => sum + Number(b.stake || 0), 0);
+    const totalPayout = betsUsed.reduce((sum, b) => sum + Number(b.payout || 0), 0);
+    const net = (totalPayout - totalStake).toFixed(2);
+
+    // ---------- ARB Logic ----------
+    // Strict: ARB only if all three sides are covered
+    const isArb = uniqueBets.length > 2; // >2 = all 3 sides
+
+    // Determine coverage pattern
+    const coveragePattern = uniqueBets.join(" + ") || "No bets";
+
+    // ---------- Render Table ----------
+    result.innerHTML = `
+      <div class="section"><h3>🐉 Dragon Tiger Phoenix Bets Table</h3>
+        <table class="table">
+          <tr><th>Bet Code</th><th>Description</th><th>Stake</th><th>Payout</th><th>Status</th></tr>
+          ${betsUsed.map(b => `
+            <tr>
+              <td>${b.code}</td>
+              <td>${betDescriptions[b.code] || "-"}</td>
+              <td>${b.stake}</td>
+              <td>${b.payout}</td>
+              <td>${b.payout > 0
+                ? '<span class="badge badge-win">Win</span>'
+                : '<span class="badge badge-loss">Lost</span>'}</td>
+            </tr>`).join("")}
+          <tr>
+            <th colspan="2">Total</th>
+            <td>${totalStake}</td>
+            <td>${totalPayout}</td>
+            <td>Net: ${net}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="section"><h3>🟢 Coverage</h3>
+        <table class="table">
+          <tr><th>Metric</th><th>Value</th></tr>
+          <tr><td>Active Bets</td><td>${uniqueBets.length} / ${boardOptions.size}</td></tr>
+          <tr><td>Coverage Pattern</td><td>${coveragePattern}</td></tr>
+          <tr><td>Board Coverage</td><td>${coveragePercent.toFixed(2)}%</td></tr>
+          <tr><td>Unused Bets</td><td>${unusedBets.join(", ") || "-"}</td></tr>
+        </table>
+      </div>
+    `;
+
+    // ---------- Badge Status ----------
+    if (isArb) {
+      badge.className = "status-badge status-arb";
+      badge.textContent = `ARB ✅ (All 3 sides covered, ${coveragePercent.toFixed(2)}%)`;
+    } else {
+      badge.className = "status-badge status-notarb";
+      badge.textContent = `NOT ARB ❌ (${coveragePattern}, ${coveragePercent.toFixed(2)}%)`;
+    }
+
+  } catch (err) {
+    result.innerHTML = `<p>⚠️ Error parsing Dragon Tiger Phoenix JSON: ${err.message}</p>`;
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+  }
+}
+
+
+
+
 }
 
 </script>
@@ -3157,3 +3397,4 @@ if (game === "cointoss") {
 
 
 </body></html>
+
