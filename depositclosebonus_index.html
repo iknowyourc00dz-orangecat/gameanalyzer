@@ -22,113 +22,25 @@ body {
   padding: 25px;
   box-shadow: 0 0 10px #00e6ff33;
 }
-h1 {
-  text-align: center;
-  color: #00e6ff;
-  text-shadow: 0 0 4px #00e6ff;
-  margin-bottom: 25px;
+h1 { text-align: center; color: #00e6ff; text-shadow: 0 0 4px #00e6ff; margin-bottom: 25px; }
+label { display:block; margin-top:15px; font-weight:500; color:#9ef; font-size:14px; }
+input[type="text"], input[type="number"], textarea, select {
+  width:100%; padding:10px 12px; margin-top:6px; border-radius:8px; border:1px solid #00bcd4;
+  background:#0a0b15; color:#ffffff; font-size:14px; outline:none; box-sizing:border-box;
 }
-label {
-  display: block;
-  margin-top: 15px;
-  font-weight: 500;
-  color: #9ef;
-  font-size: 14px;
-}
-input[type="text"],
-input[type="number"],
-textarea,
-select {
-  width: 100%;
-  padding: 10px 12px;
-  margin-top: 6px;
-  border-radius: 8px;
-  border: 1px solid #00bcd4;
-  background: #0a0b15;
-  color: #ffffff;
-  font-size: 14px;
-  outline: none;
-  box-sizing: border-box;
-}
-textarea {
-  resize: vertical;
-  min-height: 120px;
-}
-button {
-  margin-top: 15px;
-  padding: 12px 22px;
-  font-size: 15px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 0 5px #00e6ff33;
-  transition: all 0.2s;
-}
-#downloadBtn {
-  background: #00ff99;
-  color: #000;
-  margin-left: 10px;
-}
-#parseBtn {
-  background: #00e6ff;
-  color: #000;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-  font-size: 14px;
-  display: block;
-}
-th, td {
-  border: 1px solid #00bcd4;
-  padding: 8px 10px;
-  text-align: left;
-}
-th {
-  background: #001022;
-  color: #00e6ff;
-  position: sticky;
-  top: 0;
-}
-tr:nth-child(even) td { background: #00101a; }
-tr:hover td { background: #001a2a; }
-.summary-box {
-  margin-top: 25px;
-  padding: 20px;
-  background: #001022;
-  border-radius: 10px;
-  border: 1px solid #00e6ff;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 15px;
-  box-shadow: 0 0 6px #00e6ff33;
-}
-.summary-box h2 {
-  grid-column: 1 / -1;
-  color: #00e6ff;
-  text-align: center;
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-.summary-box input[readonly] {
-  background: #0a0b15;
-  color: #ffffff;
-  font-weight: 600;
-  text-align: right;
-  border: 1px solid #00bcd4;
-  border-radius: 8px;
-  padding: 8px;
-}
-#adminMsg {
-  margin-top: 20px;
-  font-weight: 700;
-  font-size: 15px;
-  color: #ff4da6;
-  text-align: center;
-  grid-column: 1 / -1;
-}
+textarea { resize: vertical; min-height:120px; }
+button { margin-top:15px; padding:12px 22px; font-size:15px; border:none; border-radius:8px; font-weight:600; cursor:pointer; box-shadow:0 0 5px #00e6ff33; transition:all .2s; }
+#downloadBtn{ background:#00ff99; color:#000; margin-left:10px; }
+#parseBtn{ background:#00e6ff; color:#000; }
+table { width:100%; border-collapse:collapse; margin-top:20px; font-size:14px; display:block; }
+th, td { border:1px solid #00bcd4; padding:8px 10px; text-align:left; }
+th { background:#001022; color:#00e6ff; position:sticky; top:0; }
+tr:nth-child(even) td { background:#00101a; }
+tr:hover td { background:#001a2a; }
+.summary-box { margin-top:25px; padding:20px; background:#001022; border-radius:10px; border:1px solid #00e6ff; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:15px; box-shadow:0 0 6px #00e6ff33; }
+.summary-box h2 { grid-column:1 / -1; color:#00e6ff; text-align:center; margin-bottom:10px; font-weight:600; }
+.summary-box input[readonly] { background:#0a0b15; color:#ffffff; font-weight:600; text-align:right; border:1px solid #00bcd4; border-radius:8px; padding:8px; }
+#adminMsg { margin-top:20px; font-weight:700; font-size:15px; color:#ff4da6; text-align:center; grid-column:1 / -1; }
 </style>
 </head>
 <body>
@@ -185,7 +97,7 @@ tr:hover td { background: #001a2a; }
 
   <div class="summary-box">
     <h2>Summary</h2>
-    <div><label>Total Valid Bets (Slots only):</label><input id="totalBets" readonly></div>
+    <div><label>Total Valid Bets:</label><input id="totalBets" readonly></div>
     <div><label>Total Win/Loss (Net):</label><input id="totalWinLoss" readonly></div>
     <div><label>Other Valid Bets:</label><input id="otherBetsSummary" readonly></div>
     <div><label>Turnover Requirement:</label><input id="turnoverReqSummary" readonly></div>
@@ -197,7 +109,6 @@ tr:hover td { background: #001a2a; }
 </div>
 
 <script>
-// --- Apply bonus code ---
 function applyBonusCode(){
   const select = document.getElementById('bonusCodeSelect');
   const option = select.options[select.selectedIndex];
@@ -209,57 +120,74 @@ function applyBonusCode(){
   }
   updateRemainingTurnover();
 }
+
 function updateRemainingTurnover(){
   const turnoverReq = parseFloat(document.getElementById('turnoverReq').value) || 0;
   const completed = parseFloat(document.getElementById('turnoverCompleted').value) || 0;
-  const remaining = turnoverReq - completed;
-  document.getElementById('remainingTO').value = remaining.toFixed(2);
+  const otherBets = parseFloat(document.getElementById('otherBets').value) || 0;
   const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
-  document.getElementById('remainingPerMultiplier').value = (remaining / multiplier).toFixed(2);
+  const totalValid = parseFloat(document.getElementById('totalBets').value) || 0;
+
+  const remaining = turnoverReq - (totalValid + otherBets + completed);
+  const remainingPerMultiplier = remaining / multiplier;
+  const truncated = Math.trunc(remaining * 100) / 100;
+
+  // show full decimal values (2 decimal places) — message uses truncated (no rounding up)
+  document.getElementById('remainingTO').value = remaining.toFixed(2);
+  document.getElementById('remainingPerMultiplier').value = remainingPerMultiplier.toFixed(2);
   document.getElementById('adminMsg').textContent = remaining > 0
-    ? `Pending turnover requirement: BDT ${remaining.toFixed(2)}`
-    : `✅ Turnover requirement met or exceeded.`;
+    ? `Upon Checking, there's a previous bonus turnover requirement that's not been completed. Please complete ${truncated.toFixed(2)} before withdrawal.`
+    : `✅ Turnover requirement met.`;
 }
 
-// ---- helpers ----
+/* ---------- helpers ---------- */
 function parseNumber(str){
-  if (!str) return 0;
-  str = str.replace(/,/g, '').trim();
-  if (/^\(.*\)$/.test(str)) str = '-' + str.replace(/[()]/g, '');
-  const n = parseFloat(str);
-  return isNaN(n) ? 0 : n;
+  if (str === undefined || str === null) return NaN;
+  const s = String(str).replace(/,/g,'').trim();
+  if (s === '') return NaN;
+  if (/^\(.*\)$/.test(s)) return -parseFloat(s.replace(/[()]/g,''));
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
 }
-function formatNumber(str){
-  const num = parseNumber(str);
-  return num.toFixed(2);
-}
+
 function parseDateWithGMT(raw){
   if (!raw) return new Date(NaN);
+  // Accept: YYYY/MM/DD HH:MM:SS (GMT+06:00)  or without parentheses/timezone
   const m = raw.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2}:\d{2})(?:\s*\(GMT([+-]\d{2}):?(\d{2})\))?$/i);
   if (m){
     const [_, y, mo, d, t, offH, offM] = m;
-    const iso = `${y}-${mo}-${d}T${t}${offH || '+00'}:${offM || '00'}`;
+    const tz = (offH ? `${offH}:${offM || '00'}` : '+00:00');
+    // build ISO string with timezone
+    const iso = `${y}-${mo}-${d}T${t}${tz}`;
     return new Date(iso);
   }
-  return new Date(raw.replace(/\s*\(GMT[^\)]+\)/, '').replace(/\//g, '-').replace(/\s+/, 'T'));
+  // fallback mild normalization
+  try {
+    return new Date(raw.replace(/\s*\(GMT[^\)]+\)/, '').replace(/\//g, '-').replace(/\s+/, 'T'));
+  } catch(e){
+    return new Date(NaN);
+  }
 }
+
 function extractTimestamps(line){
   const re = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s*(?:\(GMT[^\)]+\))?)/g;
   const matches = [];
   let m;
-  while ((m = re.exec(line)) && matches.length < 3){
+  while ((m = re.exec(line)) && matches.length < 3) {
     matches.push(m[1].trim());
   }
   return matches;
 }
+
 function smartSplit(text){
+  if (!text) return [];
   if (!text.includes('\n')){
     return text.split(/(?=\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s*(?:\(GMT[^\)]+\))?)/g).filter(Boolean).map(s=>s.trim());
   }
-  return text.split(/\r?\n/).filter(l => l.trim());
+  return text.split(/\r?\n/).filter(l=>l.trim());
 }
 
-// ---- main parsing ----
+/* ---------- main parser ---------- */
 function parseBets(){
   const bonusRaw = document.getElementById('bonusDate').value.trim();
   const withdrawalRaw = document.getElementById('withdrawalDate').value.trim();
@@ -274,64 +202,108 @@ function parseBets(){
   const lines = smartSplit(input);
   const tbody = document.querySelector('#betsTable tbody');
   tbody.innerHTML = '';
-  let totalValid = 0, totalWinLoss = 0;
+
+  let totalValid = 0;
+  let totalWinLoss = 0;
 
   lines.forEach(line => {
-    const timestampsRaw = extractTimestamps(line);
+    // extract up to 3 timestamps (Transaction Date, Settled Time, Create Time)
+    const tsStrings = extractTimestamps(line); // array of timestamp strings (may be <3)
+    // remove the timestamps from the line to get the rest fields
     let remaining = line;
-    timestampsRaw.forEach(ts => remaining = remaining.replace(ts, '').trim());
-    const restFields = remaining.replace(/\t/g, '  ').trim().split(/\s{2,}/).map(p=>p.trim()).filter(Boolean);
-    const cols = [...timestampsRaw, ...restFields];
+    tsStrings.forEach(ts => { remaining = remaining.replace(ts, '').trim(); });
+
+    // split remaining into fields by multiple spaces or tabs or "  " used earlier
+    const restFields = remaining.replace(/\t/g, '  ').trim().split(/\s{2,}/).map(p => p.trim()).filter(Boolean);
+
+    // columns: [ts0, ts1, ts2, ...restFields]
+    const cols = [...tsStrings, ...restFields];
     while (cols.length < 10) cols.push('');
 
-    const timestamps = cols.slice(0,3).map(t => parseDateWithGMT(t));
-    const gameType = cols[4] ? cols[4].toLowerCase() : "";
+    // parse the first three timestamps into Date objects
+    const tsDates = [0,1,2].map(i => parseDateWithGMT(cols[i] || ''));
 
-    const numericFields = cols.slice(6).map(c=>parseNumber(c)).filter(n=>!isNaN(n));
-    const betVal = numericFields.length >= 2 ? numericFields[numericFields.length-2] : (numericFields[0] || 0);
-    const winLossVal = numericFields.length ? numericFields[numericFields.length-1] : 0;
+    // Determine bet and win/loss values robustly:
+    // Prefer explicit columns 7 and 8 (zero-based). If not numeric, fall back to scanning numeric values from the right.
+    let betVal = parseNumber(cols[7]);
+    let winLossVal = parseNumber(cols[8]);
 
+    // fallback: collect numeric values from cols.slice(6) and try to assign last two numbers as winLoss and bet respectively
+    if (isNaN(betVal) || isNaN(winLossVal)){
+      const numericRight = cols.slice(6).map(c => parseNumber(c)).filter(n => !isNaN(n));
+      if (numericRight.length >= 2){
+        // assume last is winLoss, previous is bet
+        winLossVal = numericRight[numericRight.length - 1];
+        betVal = numericRight[numericRight.length - 2];
+      } else if (numericRight.length === 1){
+        // only one numeric found -> treat it as bet
+        betVal = numericRight[0];
+        winLossVal = 0;
+      } else {
+        betVal = 0;
+        winLossVal = 0;
+      }
+    }
+
+    // build row
     const tr = document.createElement('tr');
-    cols.slice(0,10).forEach((c,i) => {
+    cols.slice(0,10).forEach((c, i) => {
       const td = document.createElement('td');
-      td.textContent = i>=7 ? formatNumber(c) : c;
-      if (i>=7) td.style.textAlign = 'right';
+      // for numeric display in the right columns show 2 decimals if it's numeric
+      if (i >= 7) {
+        const num = parseNumber(c);
+        td.textContent = isNaN(num) ? c : num.toFixed(2);
+        td.style.textAlign = 'right';
+      } else {
+        td.textContent = c;
+      }
       tr.appendChild(td);
     });
 
-    let inRange = timestamps.some(t => (!isNaN(t) && t >= bonusDate && t <= withdrawalDate));
-    if (inRange && gameType.includes("slots")) {
-      tr.style.backgroundColor = '#00640055';
-      totalValid += betVal;
-      totalWinLoss += winLossVal;
-    } else if (inRange) {
-      tr.style.backgroundColor = '#44440055';
-      totalWinLoss += winLossVal;
+    // Decide inclusion: check if any of the parsed tsDates fall within the bonus window (inclusive)
+    let inRange = false;
+    if (!isNaN(bonusDate) && !isNaN(withdrawalDate)) {
+      inRange = tsDates.some(d => (!isNaN(d) && d >= bonusDate && d <= withdrawalDate));
     } else {
-      tr.style.backgroundColor = '#8B000055';
+      // If no bonus/withdrawal dates provided, treat as included (or you can prefer excluded)
+      inRange = false;
+    }
+
+    if (inRange) {
+      tr.style.backgroundColor = '#00640055'; // green included
+      totalValid += (isNaN(betVal) ? 0 : betVal);
+      totalWinLoss += (isNaN(winLossVal) ? 0 : winLossVal);
+    } else {
+      tr.style.backgroundColor = '#8B000055'; // red excluded
     }
 
     tbody.appendChild(tr);
   });
 
+  // Fill summary values with 2 decimals (keeps decimals)
   document.getElementById('totalBets').value = totalValid.toFixed(2);
   document.getElementById('totalWinLoss').value = totalWinLoss.toFixed(2);
   document.getElementById('otherBetsSummary').value = otherBets.toFixed(2);
   document.getElementById('turnoverReqSummary').value = turnoverReq.toFixed(2);
   document.getElementById('multiplierSummary').value = multiplier.toFixed(2);
 
+  // Remaining calculation and admin message (truncate to 2 decimals for message as requested)
   const completed = parseFloat(document.getElementById('turnoverCompleted').value) || 0;
   const remaining = turnoverReq - (totalValid + otherBets + completed);
+  const remainingPerMultiplier = remaining / multiplier;
+  const truncated = Math.trunc(remaining * 100) / 100;
+
   document.getElementById('remainingTO').value = remaining.toFixed(2);
-  document.getElementById('remainingPerMultiplier').value = (remaining / multiplier).toFixed(2);
+  document.getElementById('remainingPerMultiplier').value = remainingPerMultiplier.toFixed(2);
+
   document.getElementById('adminMsg').textContent = remaining > 0
-    ? `Upon Checking, there's a previous bonus turnover requirement that's not been completed. Please complete BDT ${remaining.toFixed(2)} before withdrawal.`
+    ? `Upon Checking, there's a previous bonus turnover requirement that's not been completed. Please complete ${truncated.toFixed(2)} before withdrawal.`
     : `✅ Turnover requirement met.`;
 }
 
 function downloadCSV(){
   const rows = document.querySelectorAll('#betsTable tbody tr');
-  if (!rows.length){ alert('No bets to download!'); return; }
+  if (!rows.length) { alert('No bets to download!'); return; }
   let csv = 'Transaction Date,Settled Time,Create Time,Vendor,Type,Game,Odds,Bet,Win/Loss,Turnover\n';
   rows.forEach(row => {
     const cells = row.querySelectorAll('td');
@@ -350,4 +322,3 @@ function downloadCSV(){
 </script>
 </body>
 </html>
-
