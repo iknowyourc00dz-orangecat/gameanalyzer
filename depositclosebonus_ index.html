@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deposit Force Close Handler</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+body {
+  font-family: 'Poppins', sans-serif;
+  background: #0b0c1a;
+  color: #bdfcff;
+  margin: 0;
+  padding: 20px;
+}
+.box {
+  max-width: 1200px;
+  margin: auto;
+  background: #0a0b15;
+  border: 1px solid #00e6ff;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 0 10px #00e6ff33;
+}
+h1 {
+  text-align: center;
+  color: #00e6ff;
+  text-shadow: 0 0 4px #00e6ff;
+  margin-bottom: 25px;
+}
+label {
+  display: block;
+  margin-top: 15px;
+  font-weight: 500;
+  color: #9ef;
+  font-size: 14px;
+}
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #00bcd4;
+  background: #0a0b15;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+button {
+  margin-top: 15px;
+  padding: 12px 22px;
+  font-size: 15px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 5px #00e6ff33;
+  transition: all 0.2s;
+}
+#downloadBtn {
+  background: #00ff99;
+  color: #000;
+  margin-left: 10px;
+}
+#parseBtn {
+  background: #00e6ff;
+  color: #000;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-size: 14px;
+  display: block;
+}
+th, td {
+  border: 1px solid #00bcd4;
+  padding: 8px 10px;
+  text-align: left;
+}
+th {
+  background: #001022;
+  color: #00e6ff;
+  position: sticky;
+  top: 0;
+}
+tr:nth-child(even) td { background: #00101a; }
+tr:hover td { background: #001a2a; }
+.summary-box {
+  margin-top: 25px;
+  padding: 20px;
+  background: #001022;
+  border-radius: 10px;
+  border: 1px solid #00e6ff;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 15px;
+  box-shadow: 0 0 6px #00e6ff33;
+}
+.summary-box h2 {
+  grid-column: 1 / -1;
+  color: #00e6ff;
+  text-align: center;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.summary-box input[readonly] {
+  background: #0a0b15;
+  color: #ffffff;
+  font-weight: 600;
+  text-align: right;
+  border: 1px solid #00bcd4;
+  border-radius: 8px;
+  padding: 8px;
+}
+#adminMsg {
+  margin-top: 20px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #ff4da6;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Deposit Force Close Handler</h1>
+
+  <label>Bonus Code:</label>
+  <select id="bonusCodeSelect" onchange="applyBonusCode()">
+    <option value="">-- Select Bonus Code --</option>
+    <option value="aq-wc000002" data-turnover="527800" data-multiplier="28">aq-wc000002 - 277% Bonus + 20% Cashback -2</option>
+  </select>
+
+  <label>Bonus Purchase Date:</label>
+  <input id="bonusDate" type="text" placeholder="YYYY/MM/DD HH:MM:SS (GMT+X)">
+  <label>Withdrawal Date:</label>
+  <input id="withdrawalDate" type="text" placeholder="YYYY/MM/DD HH:MM:SS (GMT+X)">
+  <label>Turnover Requirement:</label>
+  <input id="turnoverReq" type="number" placeholder="Turnover requirement">
+  <label>Multiplier:</label>
+  <input id="multiplier" type="number" placeholder="Multiplier">
+  <label>Turnover Completed (if any):</label>
+  <input id="turnoverCompleted" type="number" placeholder="Enter completed turnover" oninput="updateRemainingTurnover()">
+  <label>Other Valid Bets:</label>
+  <input id="otherBets" type="number" placeholder="Other Valid Bets">
+
+  <label>Paste All Bets Here (tab, comma or space separated):</label>
+  <textarea id="betsInput" placeholder="Paste your bets here..."></textarea>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button id="parseBtn" onclick="parseBets()">Parse Bets &amp; Calculate</button>
+    <button id="downloadBtn" onclick="downloadCSV()">Download CSV</button>
+  </div>
+
+  <h2>Parsed Bets</h2>
+  <div style="overflow-x:auto;max-height:350px">
+    <table id="betsTable">
+      <thead>
+        <tr>
+          <th>Transaction Date</th>
+          <th>Settled Time</th>
+          <th>Create Time</th>
+          <th>Vendor</th>
+          <th>Type</th>
+          <th>Game</th>
+          <th>Odds</th>
+          <th>Bet</th>
+          <th>Win/Loss</th>
+          <th>Turnover</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="summary-box">
+    <h2>Summary</h2>
+    <div><label>Total Valid Bets (Slots only):</label><input id="totalBets" readonly></div>
+    <div><label>Total Win/Loss (Net):</label><input id="totalWinLoss" readonly></div>
+    <div><label>Other Valid Bets:</label><input id="otherBetsSummary" readonly></div>
+    <div><label>Turnover Requirement:</label><input id="turnoverReqSummary" readonly></div>
+    <div><label>Multiplier:</label><input id="multiplierSummary" readonly></div>
+    <div><label>Remaining Turnover:</label><input id="remainingTO" readonly></div>
+    <div><label>Remaining ÷ Multiplier:</label><input id="remainingPerMultiplier" readonly></div>
+    <div id="adminMsg"></div>
+  </div>
+</div>
+
+<script>
+// --- Apply bonus code ---
+function applyBonusCode(){
+  const select = document.getElementById('bonusCodeSelect');
+  const option = select.options[select.selectedIndex];
+  const turnover = option.getAttribute('data-turnover');
+  const multiplier = option.getAttribute('data-multiplier');
+  if (turnover){
+    document.getElementById('turnoverReq').value = turnover;
+    document.getElementById('multiplier').value = multiplier;
+  }
+  updateRemainingTurnover();
+}
+function updateRemainingTurnover(){
+  const turnoverReq = parseFloat(document.getElementById('turnoverReq').value) || 0;
+  const completed = parseFloat(document.getElementById('turnoverCompleted').value) || 0;
+  const remaining = turnoverReq - completed;
+  document.getElementById('remainingTO').value = remaining.toFixed(2);
+  const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
+  document.getElementById('remainingPerMultiplier').value = (remaining / multiplier).toFixed(2);
+  document.getElementById('adminMsg').textContent = remaining > 0
+    ? `Pending turnover requirement: BDT ${remaining.toFixed(2)}`
+    : `✅ Turnover requirement met or exceeded.`;
+}
+
+// ---- helpers ----
+function parseNumber(str){
+  if (!str) return 0;
+  str = str.replace(/,/g, '').trim();
+  if (/^\(.*\)$/.test(str)) str = '-' + str.replace(/[()]/g, '');
+  const n = parseFloat(str);
+  return isNaN(n) ? 0 : n;
+}
+function formatNumber(str){
+  const num = parseNumber(str);
+  return num.toFixed(2);
+}
+function parseDateWithGMT(raw){
+  if (!raw) return new Date(NaN);
+  const m = raw.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2}:\d{2})(?:\s*\(GMT([+-]\d{2}):?(\d{2})\))?$/i);
+  if (m){
+    const [_, y, mo, d, t, offH, offM] = m;
+    const iso = `${y}-${mo}-${d}T${t}${offH || '+00'}:${offM || '00'}`;
+    return new Date(iso);
+  }
+  return new Date(raw.replace(/\s*\(GMT[^\)]+\)/, '').replace(/\//g, '-').replace(/\s+/, 'T'));
+}
+function extractTimestamps(line){
+  const re = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s*(?:\(GMT[^\)]+\))?)/g;
+  const matches = [];
+  let m;
+  while ((m = re.exec(line)) && matches.length < 3){
+    matches.push(m[1].trim());
+  }
+  return matches;
+}
+function smartSplit(text){
+  if (!text.includes('\n')){
+    return text.split(/(?=\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s*(?:\(GMT[^\)]+\))?)/g).filter(Boolean).map(s=>s.trim());
+  }
+  return text.split(/\r?\n/).filter(l => l.trim());
+}
+
+// ---- main parsing ----
+function parseBets(){
+  const bonusRaw = document.getElementById('bonusDate').value.trim();
+  const withdrawalRaw = document.getElementById('withdrawalDate').value.trim();
+  const bonusDate = parseDateWithGMT(bonusRaw);
+  const withdrawalDate = parseDateWithGMT(withdrawalRaw);
+  const otherBets = parseFloat(document.getElementById('otherBets').value) || 0;
+  const turnoverReq = parseFloat(document.getElementById('turnoverReq').value) || 0;
+  const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
+  const input = document.getElementById('betsInput').value.trim();
+  if (!input){ alert('Please paste some bets!'); return; }
+
+  const lines = smartSplit(input);
+  const tbody = document.querySelector('#betsTable tbody');
+  tbody.innerHTML = '';
+  let totalValid = 0, totalWinLoss = 0;
+
+  lines.forEach(line => {
+    const timestampsRaw = extractTimestamps(line);
+    let remaining = line;
+    timestampsRaw.forEach(ts => remaining = remaining.replace(ts, '').trim());
+    const restFields = remaining.replace(/\t/g, '  ').trim().split(/\s{2,}/).map(p=>p.trim()).filter(Boolean);
+    const cols = [...timestampsRaw, ...restFields];
+    while (cols.length < 10) cols.push('');
+
+    const timestamps = cols.slice(0,3).map(t => parseDateWithGMT(t));
+    const gameType = cols[4] ? cols[4].toLowerCase() : "";
+
+    const numericFields = cols.slice(6).map(c=>parseNumber(c)).filter(n=>!isNaN(n));
+    const betVal = numericFields.length >= 2 ? numericFields[numericFields.length-2] : (numericFields[0] || 0);
+    const winLossVal = numericFields.length ? numericFields[numericFields.length-1] : 0;
+
+    const tr = document.createElement('tr');
+    cols.slice(0,10).forEach((c,i) => {
+      const td = document.createElement('td');
+      td.textContent = i>=7 ? formatNumber(c) : c;
+      if (i>=7) td.style.textAlign = 'right';
+      tr.appendChild(td);
+    });
+
+    let inRange = timestamps.some(t => (!isNaN(t) && t >= bonusDate && t <= withdrawalDate));
+    if (inRange && gameType.includes("slots")) {
+      tr.style.backgroundColor = '#00640055';
+      totalValid += betVal;
+      totalWinLoss += winLossVal;
+    } else if (inRange) {
+      tr.style.backgroundColor = '#44440055';
+      totalWinLoss += winLossVal;
+    } else {
+      tr.style.backgroundColor = '#8B000055';
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('totalBets').value = totalValid.toFixed(2);
+  document.getElementById('totalWinLoss').value = totalWinLoss.toFixed(2);
+  document.getElementById('otherBetsSummary').value = otherBets.toFixed(2);
+  document.getElementById('turnoverReqSummary').value = turnoverReq.toFixed(2);
+  document.getElementById('multiplierSummary').value = multiplier.toFixed(2);
+
+  const completed = parseFloat(document.getElementById('turnoverCompleted').value) || 0;
+  const remaining = turnoverReq - (totalValid + otherBets + completed);
+  document.getElementById('remainingTO').value = remaining.toFixed(2);
+  document.getElementById('remainingPerMultiplier').value = (remaining / multiplier).toFixed(2);
+  document.getElementById('adminMsg').textContent = remaining > 0
+    ? `Upon Checking, there's a previous bonus turnover requirement that's not been completed. Please complete BDT ${remaining.toFixed(2)} before withdrawal.`
+    : `✅ Turnover requirement met.`;
+}
+
+function downloadCSV(){
+  const rows = document.querySelectorAll('#betsTable tbody tr');
+  if (!rows.length){ alert('No bets to download!'); return; }
+  let csv = 'Transaction Date,Settled Time,Create Time,Vendor,Type,Game,Odds,Bet,Win/Loss,Turnover\n';
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const values = Array.from(cells).map(td => {
+      const txt = td.textContent || '';
+      return txt.includes(',') || txt.includes('"') ? `"${txt.replace(/"/g,'""')}"` : txt;
+    });
+    csv += values.join(',') + '\n';
+  });
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `bonus_bets_${Date.now()}.csv`;
+  link.click();
+}
+</script>
+</body>
+</html>
