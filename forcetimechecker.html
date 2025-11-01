@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Force Serve Forensics — Log Analyzer</title>
+<style>
+:root{
+  --bg:#0b0b12;--card:#0f1724;--muted:#9aa4b2;
+  --accent:#3be8c9;--danger:#ff6b6b;--glass:rgba(255,255,255,0.03);
+}
+body{
+  background:#0b0b12;color:#e6eef6;font-family:'Poppins',sans-serif;
+  margin:0;padding:24px;
+}
+.wrap{max-width:1000px;margin:0 auto}
+h1{margin:0 0 8px;font-size:22px}
+p.lead{margin:0 0 16px;color:var(--muted);font-size:13px}
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 6px 18px rgba(0,0,0,0.5)}
+textarea{width:100%;height:280px;background:var(--glass);color:#e6eef6;border:none;padding:10px;border-radius:8px;font-family:monospace;font-size:13px}
+input[type=text]{width:100%;padding:8px;border-radius:8px;border:none;background:var(--glass);color:#e6eef6}
+button{background:var(--accent);border:none;padding:10px 16px;border-radius:8px;color:#032326;font-weight:600;cursor:pointer}
+button:hover{opacity:0.9}
+.small{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.05);text-align:left}
+th{color:var(--muted)}
+tr.trigger{background:linear-gradient(90deg,rgba(255,107,107,0.15),transparent)}
+tr.closest{background:linear-gradient(90deg,rgba(59,232,201,0.2),transparent)}
+footer{margin-top:10px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Force Serve Forensics — Log Analyzer</h1>
+  <p class="lead">Paste logs below, set Force Serve time, and click <b>Analyze</b>. The nearest bet to the Force Serve time will be marked in cyan.</p>
+
+  <div class="card">
+    <label>Paste raw logs:</label>
+    <textarea id="logs" placeholder="Example: 2025/10/01 16:19:38 (GMT+06:00) Kingmidas Table 7 Up 7 Down 0.00 538.00 ( 538.00 ) 538.00"></textarea>
+
+    <label style="margin-top:10px">Force Serve time (e.g. 2025/10/01 16:24:03)</label>
+    <input id="fsTime" type="text" placeholder="2025/10/01 16:24:03 (GMT+06:00)">
+    <div style="margin-top:12px;display:flex;gap:10px">
+      <button id="analyzeBtn">Analyze</button>
+      <button id="exportCsv" style="background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.1)">Export CSV</button>
+    </div>
+    <div id="summary" class="small" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 6px;font-size:15px;color:var(--muted)">Events</h3>
+    <div id="eventsPane" style="max-height:400px;overflow:auto"></div>
+  </div>
+
+  <footer>Tip: Cyan row = Closest to Force Serve. Red = High-risk trigger candidate. Always confirm with DB logs.</footer>
+</div>
+
+<script>
+function extractFirstTimestamp(line){
+  const re=/(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})\s+(\d{1,2}:\d{2}:\d{2})/;
+  const m=line.match(re);if(!m)return null;
+  return m[1].replace(/-/g,'/')+' '+m[2];
+}
+
+function extractFields(line){
+  const parts=line.split(/\t|\s{2,}|\s\|\s/).map(p=>p.trim()).filter(Boolean);
+  const providers=['PG Soft','Spribe','JDB','Kingmidas','JILI','AWC'];
+  let provider=parts.find(p=>providers.some(q=>p.includes(q)))||'';
+  const slotIdx=parts.findIndex(p=>/Slots|Crash|Aviator|Table/i.test(p));
+  let category=slotIdx>=0?parts[slotIdx]:'';
+  let game=slotIdx>=0&&parts[slotIdx+1]?parts[slotIdx+1]:'';
+  const numRe=/\(?\s*\d{1,3}(?:[,\d]*)(?:\.\d+)?\s*\)?/g;
+  const nums=line.match(numRe)||[];
+  const normalized=nums.map(s=>s.replace(/[(),\s]/g,'')).filter(Boolean);
+  let bet=normalized.length>=2?normalized[normalized.length-2]:(normalized[0]||'0');
+  let win=normalized.length>=1?normalized[normalized.length-1]:'0';
+  return{provider,category,game,bet:parseFloat(bet)||0,win:parseFloat(win)||0};
+}
+
+function parseLogs(raw){
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const events=[];
+  for(const line of lines){
+    const ts=extractFirstTimestamp(line);
+    if(!ts)continue;
+    const dt=new Date(ts.replace(/\//g,'-')+' GMT+0600');
+    const f=extractFields(line);
+    events.push({tsRaw:ts,time:dt,...f,raw:line});
+  }
+  return events.sort((a,b)=>a.time-b.time);
+}
+
+function findClosestToFS(events,fs){
+  if(!fs)return null;
+  let closest=null,minDiff=Infinity;
+  for(const e of events){
+    const diff=Math.abs(e.time-fs.time);
+    if(diff<minDiff){minDiff=diff;closest=e;}
+  }
+  return closest;
+}
+
+function detectTrigger(events,fs,{minWinAmount=200}={}){
+  const before=events.filter(e=>e.time<=fs.time);
+  for(let i=before.length-1;i>=0;i--){
+    const e=before[i];
+    if(e.win>=minWinAmount)return e;
+  }
+  return null;
+}
+
+function render(events,fs,closest,trigger){
+  const pane=document.getElementById('eventsPane');
+  const table=document.createElement('table');
+  table.innerHTML='<thead><tr><th>Time</th><th>Provider</th><th>Category</th><th>Game</th><th>Bet</th><th>Win</th></tr></thead>';
+  const tbody=document.createElement('tbody');
+  for(const e of events){
+    const tr=document.createElement('tr');
+    if(trigger && e===trigger) tr.classList.add('trigger');
+    if(closest && e===closest) tr.classList.add('closest');
+    tr.innerHTML=`<td>${e.tsRaw}</td><td>${e.provider}</td><td>${e.category}</td><td>${e.game}</td><td>${e.bet}</td><td>${e.win}</td>`;
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  pane.innerHTML=''; pane.appendChild(table);
+}
+
+document.getElementById('analyzeBtn').addEventListener('click',()=>{
+  const raw=document.getElementById('logs').value.trim();
+  if(!raw)return alert('Paste logs first.');
+  const events=parseLogs(raw);
+  const fsStr=document.getElementById('fsTime').value.trim();
+  if(!fsStr)return alert('Enter Force Serve time.');
+  const fsTs=extractFirstTimestamp(fsStr)||fsStr;
+  const fs={time:new Date(fsTs.replace(/\//g,'-')+' GMT+0600'),tsRaw:fsTs};
+  const closest=findClosestToFS(events,fs);
+  const trigger=detectTrigger(events,fs);
+  render(events,fs,closest,trigger);
+  document.getElementById('summary').innerHTML=
+    `Parsed ${events.length} events. <b>Force Serve:</b> ${fs.tsRaw}. 
+     ${closest?`<span style='color:var(--accent)'>Closest bet:</span> ${closest.tsRaw} (${closest.provider} ${closest.game})`:''}
+     ${trigger?` • <span style='color:var(--danger)'>Trigger candidate:</span> ${trigger.tsRaw}`:''}`;
+  window.__lastExport=events;
+});
+
+document.getElementById('exportCsv').addEventListener('click',()=>{
+  const rows=window.__lastExport||[];
+  if(!rows.length)return alert('Analyze first.');
+  const csv=['time,provider,category,game,bet,win']
+    .concat(rows.map(r=>`"${r.tsRaw}","${r.provider}","${r.category}","${r.game}",${r.bet},${r.win}`)).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='fs_analysis.csv';a.click();URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
