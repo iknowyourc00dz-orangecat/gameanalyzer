@@ -599,13 +599,20 @@ if (game === "sicbo") {
       return Array.from(outcomes);
     }
 
-    // ---------- Outcome Coverage ----------
-    const allOutcomes = new Set();
-    uniqueBets.forEach(betCode => getSicBoCoveredDice(betCode).forEach(x=>allOutcomes.add(x)));
-    const totalOutcomes = 216;
-    const coveredOutcomes = allOutcomes.size;
-    const outcomeCoveragePercent = (coveredOutcomes / totalOutcomes) * 100;
-    const isOutcomeArb = outcomeCoveragePercent >= 85;
+   // ---------- Outcome Coverage ----------
+const allOutcomes = new Set();
+uniqueBets.forEach(betCode => {
+  getSicBoCoveredDice(betCode).forEach(x => {
+    // Normalize format (no spaces, consistent commas)
+    allOutcomes.add(x.split(',').map(n => n.trim()).join(','));
+  });
+});
+
+const totalOutcomes = 216;
+const coveredOutcomes = Math.min(allOutcomes.size, totalOutcomes); // never exceed 216
+const outcomeCoveragePercent = Math.min((coveredOutcomes / totalOutcomes) * 100, 100); // cap at 100
+const isOutcomeArb = outcomeCoveragePercent >= 85;
+
 
     // ---------- Render Tables ----------
     result.innerHTML = `
@@ -3397,4 +3404,5 @@ if (game === "dtp") {
 
 
 </body></html>
+
 
