@@ -50,6 +50,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
     <!--  <option value="lightningsicbo">Lightning Sic Bo (not working) </option> -->
     <option value="fantan">Fan Tan</option>
     <option value="monopoly">Monopoly Big Baller</option>
+	<option value="monopolylive">Monopoly LIVE</option>
     <option value="funkytime">Funky Time</option>
     <option value="crazytime">Crazy Time</option>
     <option value="lightningstorm">Lightning Storm</option>
@@ -3397,6 +3398,114 @@ if (game === "dtp") {
 
 
 
+
+	// ---------- MONOPOLY Live ---------- No guaranteed win - payout depends on which number hits | but with bonus present its still bonus abuse if arb pattern is met, else let go
+if (game === "monopolylive") {
+  let bets;
+  try {
+    bets = JSON.parse(jsonText);
+  } catch (e) {
+    result.innerHTML = "<p>⚠️ Invalid JSON or empty input</p>";
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+    return;
+  }
+
+  if (!bets || !bets.length) {
+    result.innerHTML = "<p>⚠️ No bets placed</p>";
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+    return;
+  }
+
+  // --- Real MONOPOLY Live layout ---
+  const SEGMENTS = {
+    "MON_1": 22,
+    "MON_2": 15,
+    "MON_5": 7,
+    "MON_10": 4,
+    "MON_2_Rolls": 3,
+    "MON_4_Rolls": 1
+  };
+  const CHANCE_SEGMENTS = 2; // unbettable
+  const TOTAL_SEGMENTS = 54;
+  const BETTABLE_SEGMENTS = TOTAL_SEGMENTS - CHANCE_SEGMENTS; // 52
+
+  let totalStake = 0, totalPayout = 0;
+  let coveredSegments = 0;
+  let pickedCodes = [];
+
+  bets.forEach(b => {
+    const segCount = SEGMENTS[b.code] || 0;
+    totalStake += Number(b.stake) || 0;
+    totalPayout += Number(b.payout) || 0;
+    coveredSegments += segCount;
+    pickedCodes.push(b.code);
+  });
+
+  const allCodes = Object.keys(SEGMENTS);
+  const uncoveredCodes = allCodes.filter(c => !pickedCodes.includes(c));
+
+  const coveragePercent = (coveredSegments / BETTABLE_SEGMENTS) * 100;
+  const status = coveragePercent >= 85 ? "ARB" : "Not ARB";
+  const net = (totalPayout - totalStake).toFixed(2);
+
+  badge.className = "status-badge " + (status === "ARB" ? "status-arb" : "status-notarb");
+  badge.textContent = `${status} (${coveragePercent.toFixed(2)}%)`;
+
+  const betRows = bets.map(b => `
+    <tr>
+      <td>${b.code}</td>
+      <td>${b.stake}</td>
+      <td>${b.payout}</td>
+      <td>${SEGMENTS[b.code] || 0}</td>
+      <td>${b.payout > 0 ? '<span class="badge badge-win">Win</span>' : ''}</td>
+    </tr>
+  `).join("");
+
+  // --- Clean Table Summary UI ---
+  result.innerHTML = `
+    <div class="section">
+      <h3>🎩 MONOPOLY Live Summary</h3>
+      <table class="table summary-table">
+        <tr><th>Bets Placed (${bets.length})</th><td>${pickedCodes.join(", ")}</td></tr>
+        <tr><th>Segments Covered</th><td>${coveredSegments}/${BETTABLE_SEGMENTS}</td></tr>
+        <tr><th>Coverage</th><td>${coveragePercent.toFixed(2)}%</td></tr>
+        <tr><th>Coverage Status</th>
+            <td><span class="badge ${status === "ARB" ? "badge-arb" : "badge-notarb"}">${status}</span></td></tr>
+        <tr><th>Uncovered Bets</th><td>${uncoveredCodes.length ? uncoveredCodes.join(", ") : "None (Full Coverage)"}</td></tr>
+      </table>
+    </div>
+
+    <div class="section"><h3>🎲 Bets Detail</h3>
+      <table class="table bet-table">
+        <tr>
+          <th>Bet Code</th>
+          <th>Stake</th>
+          <th>Payout</th>
+          <th>Segments Covered</th>
+          <th>Winning?</th>
+        </tr>
+        ${betRows || `<tr><td colspan="5">No bets placed</td></tr>`}
+        <tr class="totals">
+          <th>Total</th>
+          <td>${totalStake}</td>
+          <td>${totalPayout}</td>
+          <td>${coveredSegments}</td>
+          <td>Net: ${net}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section"><h3>⚠️ Uncovered Bets</h3>
+      <table class="table uncovered-table">
+        <tr><th>Bet Code</th><th>Status</th></tr>
+        ${uncoveredCodes.map(c => `<tr><td>${c}</td><td><span class="badge badge-uncovered">Uncovered</span></td></tr>`).join("")}
+      </table>
+    </div>
+  `;
+}
+
 }
 
 </script>
@@ -3404,5 +3513,6 @@ if (game === "dtp") {
 
 
 </body></html>
+
 
 
