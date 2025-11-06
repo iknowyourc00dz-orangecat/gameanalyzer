@@ -2637,11 +2637,11 @@ if (game === "megaball") {
 // ---------- Kingmaker Color Game checker ----------
 function KingmakerColorGame(jsonInput, result, badge) {
   try {
-    if (typeof jsonInput !== 'string') jsonInput = JSON.stringify(jsonInput);
+    if (typeof jsonInput !== "string") jsonInput = JSON.stringify(jsonInput);
     const data = JSON.parse(jsonInput);
 
-    const betString = data.betType || '';
-    const betEntries = betString.split(',').map(e => e.trim()).filter(e => e);
+    const betString = data.betType || "";
+    const betEntries = betString.split(",").map(e => e.trim()).filter(e => e);
 
     // ----- Valid betting options -----
     const singleColors = ['cg-yellow','cg-pink','cg-blue','cg-red','cg-white','cg-green'];
@@ -2654,97 +2654,87 @@ function KingmakerColorGame(jsonInput, result, badge) {
     ];
     const validOptions = [...singleColors, ...colorPairs];
 
+    // ----- Parse Bets -----
     const betSummary = {};
     let totalStake = 0;
-    let totalPayout = parseFloat(data.profit) || 0;
+    const totalPayout = parseFloat(data.profit) || 0;
     const gameResult = (data.gameResult || "").toLowerCase();
 
-    // ----- Parse bets -----
     betEntries.forEach(entry => {
-      const [code, stakeStr] = entry.split(':').map(s => s.trim());
-      if (validOptions.includes(code)) {
-        const stake = parseFloat(stakeStr) || 0;
-        if (!betSummary[code]) betSummary[code] = { stake: 0, payout: 0, win: false };
-        betSummary[code].stake += stake;
+      const [code, stakeStr] = entry.split(":").map(s => s.trim());
+      const stake = parseFloat(stakeStr) || 0;
 
-        // Check win condition
-        if (singleColors.includes(code) && gameResult.includes(code.replace('cg-',''))) {
-          betSummary[code].win = true;
-          betSummary[code].payout = stake * 2; // 1:1 payout
-        }
-        if (colorPairs.includes(code)) {
-          const parts = code.replace('cg-','').split('-');
-          if (parts.every(c => gameResult.includes(c))) {
-            betSummary[code].win = true;
-            betSummary[code].payout = stake * 6; // 1:5 payout (stake+5×stake)
-          }
-        }
-
-        totalStake += stake;
-      }
+      if (!validOptions.includes(code)) return;
+      if (!betSummary[code]) betSummary[code] = { stake: 0 };
+      betSummary[code].stake += stake;
+      totalStake += stake;
     });
 
-    // ----- Calculate covered/uncovered -----
+    // ----- Determine coverage -----
     const covered = Object.keys(betSummary);
     const uncovered = validOptions.filter(o => !covered.includes(o));
-    const coveragePercent = (covered.length / validOptions.length) * 100;
-    const isArb = coveragePercent >= 85;
 
-    // ----- Render output -----
+    const coveragePercent = (covered.length / validOptions.length) * 100;
+
+    // Logical coverage by color presence
+    const allColorsCovered = new Set();
+    covered.forEach(c => {
+      c.replace("cg-", "").split("-").forEach(clr => allColorsCovered.add(clr));
+    });
+    const colorCoveragePercent = (allColorsCovered.size / 6) * 100;
+
+    const isArb = coveragePercent >= 85 || colorCoveragePercent === 100;
+
+    // ----- Render Output -----
     result.innerHTML = `
-      <div class="section"><h3>🎨 Kingmaker Color Game Bets</h3>
+      <div class="section">
+        <h3>🎨 Kingmaker Color Game Bets</h3>
+        <p><strong>Round Ref:</strong> ${data.roundRefNo || "-"}<br>
+        <a href="${data.link}" target="_blank" style="color:#4ea1ff;text-decoration:none;">🔗 View Game Round</a></p>
+        
         <table class="table">
           <thead>
-            <tr>
-              <th>Option</th>
-              <th>Stake</th>
-              <th>Payout</th>
-              <th>Status</th>
-            </tr>
+          <div class="section">
+        <h3>🟢 Covered Bets (${covered.length}/${validOptions.length})</h3>
+        <p>Color Coverage: ${colorCoveragePercent.toFixed(2)}%</p>
+      </div>
+            <tr><th>Option</th><th>Stake</th></tr>
           </thead>
           <tbody>
-            ${covered.map(o => `<tr>
-              <td>${o.replace('cg-','').toUpperCase()}</td>
-              <td>${betSummary[o].stake}</td>
-              <td>${betSummary[o].payout.toFixed(2)}</td>
-              <td>${betSummary[o].win ? '<span class="badge badge-win">WIN</span>' : '<span class="badge badge-lose">LOSE</span>'}</td>
-            </tr>`).join('')}
+            ${covered.map(o => `
+              <tr>
+                <td>${o.replace("cg-", "").toUpperCase()}</td>
+                <td>${betSummary[o].stake.toFixed(2)}</td>
+              </tr>`).join("")}
             <tr>
               <th>Total</th>
-              <td>${totalStake}</td>
+              <td>${totalStake.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <th>Profit</th>
               <td>${totalPayout.toFixed(2)}</td>
-              <td>Net: ${(totalPayout-totalStake).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <th>Net</th>
+              <td>${(totalPayout - totalStake).toFixed(2)}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="section"><h3>🟢 Covered Options (${covered.length}/${validOptions.length})</h3>
-        <table class="table">
-          <thead><tr><th>Option</th><th>Stake</th><th>Payout</th></tr></thead>
-          <tbody>
-            ${covered.map(o => `<tr>
-              <td>${o.replace('cg-','').toUpperCase()}</td>
-              <td>${betSummary[o].stake}</td>
-              <td>${betSummary[o].payout.toFixed(2)}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
 
-      <div class="section"><h3>🚫 Not Covered Options (${uncovered.length}/${validOptions.length})</h3>
-        <table class="table">
-          <thead><tr><th>Option</th></tr></thead>
-          <tbody>
-            ${uncovered.map(o => `<tr><td>${o.replace('cg-','').toUpperCase()}</td></tr>`).join('')}
-          </tbody>
-        </table>
+
+      <div class="section">
+        <h3>🚫 Not Covered (${uncovered.length}/${validOptions.length})</h3>
+        <table class="table"><tbody>
+          ${uncovered.map(o => `<tr><td>${o.replace("cg-", "").toUpperCase()}</td></tr>`).join("")}
+        </tbody></table>
       </div>
     `;
 
     // ----- Badge -----
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
-    badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} | ${coveragePercent.toFixed(2)}%`;
+    badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} | Coverage ${coveragePercent.toFixed(2)}% | Color Map ${colorCoveragePercent.toFixed(2)}%`;
 
   } catch (err) {
     result.innerHTML = `<p>⚠️ Error parsing Kingmaker Color Game JSON: ${err.message}</p>`;
@@ -2758,6 +2748,9 @@ if (game === "colorgame") {
 }
 
 
+
+
+	
 
 
 
@@ -3513,6 +3506,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
