@@ -1546,154 +1546,164 @@ if (game === "monopoly") {
 
 
 
-// ---------- Funky Time Coverage ----------
-function EVOFunkyTimeCoverage(jsonString, result, badge) {
+// ---------- Funky Time ----------
+function FunkyTimeCoverage(jsonText, result, badge) {
   try {
-    const data = JSON.parse(jsonString);
+    if (typeof jsonText !== 'string') jsonText = JSON.stringify(jsonText);
+    const data = JSON.parse(jsonText);
 
-    const validCodes = [
+    // ---------- Valid Bets ----------
+    const mainBets = [
+      "FNT_Number1",
       "FNT_LetterA","FNT_LetterE","FNT_LetterF","FNT_LetterI","FNT_LetterK",
       "FNT_LetterL","FNT_LetterM","FNT_LetterN","FNT_LetterP","FNT_LetterT",
-      "FNT_LetterU","FNT_LetterY",
-      "FNT_Bar","FNT_StayinAlive","FNT_Disco","FNT_VipDisco"
+      "FNT_LetterU","FNT_LetterY"
     ];
 
+    const bonusBets = ["FNT_Bar", "FNT_StayinAlive", "FNT_Disco", "FNT_VipDisco"];
+    const validBets = [...mainBets, ...bonusBets];
+
+    // ---------- Normalization Map ----------
     const normalizationMap = {
       "FNT_BAR": "FNT_Bar",
       "FNT_STAYINALIVE": "FNT_StayinAlive",
       "FNT_DISCO": "FNT_Disco",
-      "FNT_VIPDISCO": "FNT_VipDisco"
+      "FNT_VIPDISCO": "FNT_VipDisco",
+      "FNT_NUMBER1": "FNT_Number1"
     };
 
-    const uniqueBets = new Set();
-    const betDetails = [];
+    let betDetails = [];
+    let uniqueBets = new Set();
+    let stakes = {}, payouts = {}, multipliers = {};
     let totalStake = 0, totalPayout = 0;
-    const stakes = {};
-    const payouts = {};
 
-    for (const entry of data) {
-      if (!entry.code) continue;
-      let code = entry.code.toUpperCase().trim();
-      code = normalizationMap[code] || entry.code.trim();
-      if (validCodes.includes(code)) {
-        uniqueBets.add(code);
-        const stake = entry.stake || 0;
-        const payout = entry.payout || 0;
-        totalStake += stake;
-        totalPayout += payout;
-        stakes[code] = (stakes[code] || 0) + stake;
-        payouts[code] = (payouts[code] || 0) + payout;
-        betDetails.push({
-          code,
-          stake,
-          payout,
-          status: payout > 0 ? "WIN" : "LOSE"
-        });
-      }
-    }
+    // ---------- Parse Data ----------
+    data.forEach(entry => {
+      if (!entry.code) return;
+      const code = normalizationMap[entry.code.toUpperCase()] || entry.code.trim();
+      if (!validBets.includes(code)) return;
 
-    const net = (totalPayout - totalStake).toFixed(2);
+      const stake = Number(entry.stake) || 0;
+      const payout = Number(entry.payout) || 0;
+      const multiplier = stake > 0 ? (payout / stake).toFixed(2) : 0;
+
+      uniqueBets.add(code);
+      totalStake += stake;
+      totalPayout += payout;
+
+      stakes[code] = (stakes[code] || 0) + stake;
+      payouts[code] = (payouts[code] || 0) + payout;
+      multipliers[code] = multiplier;
+
+      betDetails.push({
+        code,
+        stake,
+        payout,
+        multiplier,
+        status: payout > 0 ? "WIN" : "LOSE"
+      });
+    });
+
+    // ---------- Compute Coverage ----------
     const coveredList = Array.from(uniqueBets).sort();
-    const uncoveredList = validCodes.filter(code => !uniqueBets.has(code)).sort();
+    const uncoveredList = validBets.filter(code => !uniqueBets.has(code)).sort();
 
-    const coveragePercent = (coveredList.length / validCodes.length) * 100;
-    const isArb = coveragePercent >= 85;
+    const coverageAll = (coveredList.length / validBets.length) * 100;
+    const coverageMain = (coveredList.filter(b => mainBets.includes(b)).length / mainBets.length) * 100;
 
-   // ---------- Styled ARB / Coverage Badge for Funky Time ----------
-const arbBadgeHTML = `<div style="
-    float: right;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-weight: bold;
-    font-size: 14px;
-    color: white;
-    background-color: ${isArb ? '#28a745' : '#dc3545'};
-    border: 2px solid ${isArb ? '#28a745' : '#dc3545'};
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    text-align: center;
-">
-    ${isArb ? 'ARB ✅' : 'NOT ARB ❌'} | ${coveragePercent.toFixed(2)}%
-</div>`;
-
-
-    badge.innerHTML = arbBadgeHTML;
+    const isArb = coverageMain >= 85; // ✅ ARB if main coverage ≥ 85%
+    const net = (totalPayout - totalStake).toFixed(2);
 
     // ---------- Bets Table ----------
-    let html = `<h2>🕹️ Funky Time Bets Table</h2>
-      <table class="table" border="1" cellpadding="5" cellspacing="0" style="width:100%;margin-bottom:15px;">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Stake</th>
-            <th>Payout</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${betDetails.map(b => `<tr>
-            <td>${b.code}</td>
-            <td>${b.stake}</td>
-            <td>${b.payout}</td>
-            <td style="color:${b.status==="WIN"?"green":"red"};font-weight:bold;">${b.status}</td>
-          </tr>`).join("")}
-          <tr>
-            <th>Total</th>
-            <th>${totalStake}</th>
-            <th>${totalPayout}</th>
-            <th>Net: ${net}</th>
-          </tr>
-        </tbody>
-      </table>`;
+    const betsTable = `
+      <div class="section">
+        <h3>🕹️ Funky Time Bets Table</h3>
+        <table class="table">
+          <thead>
+            <tr><th>Code</th><th>Stake</th><th>Payout</th><th>Multiplier</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            ${betDetails.map(b => `
+              <tr>
+                <td>${b.code}</td>
+                <td>${b.stake}</td>
+                <td>${b.payout > 0 ? `<b style="color:#0f0;">${b.payout}</b>` : b.payout}</td>
+                <td>${b.payout > 0 ? `<b style="color:#0f0;">${b.multiplier}x</b>` : "-"}</td>
+                <td style="color:${b.status==="WIN"?"#0f0":"#f00"}; font-weight:bold;">${b.status}</td>
+              </tr>
+            `).join('')}
+            <tr>
+              <th>Total</th>
+              <th>${totalStake}</th>
+              <th>${totalPayout}</th>
+              <th colspan="2">Net: ${net}</th>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
 
-    // ---------- Covered Bets Table ----------
-    html += `<table class="table" border="1" cellpadding="5" cellspacing="0" style="width:100%;margin-bottom:15px;">
-      <thead>
-        <tr><th colspan="4">🟢 Covered Bets (${coveredList.length})</th></tr>
-        <tr><th>Code</th><th>Stake</th><th>Payout</th><th>Status</th></tr>
-      </thead>
-      <tbody>
-      ${coveredList.map(code => {
-        const status = payouts[code] > 0 ? '<span style="color:green;font-weight:bold;">WIN</span>' : 'LOSE';
-        return `<tr>
-          <td>${code}</td>
-          <td>${stakes[code]}</td>
-          <td>${payouts[code]}</td>
-          <td>${status}</td>
-        </tr>`;
-      }).join("")}
-      </tbody>
-    </table>`;
+    // ---------- Coverage Summary ----------
+    const coverageTable = `
+      <div class="section">
+        <h3>📊 Coverage Summary</h3>
+        <table class="table">
+          <tr><th>Overall Coverage</th><td>${coveredList.length}/${validBets.length} (${coverageAll.toFixed(2)}%)</td></tr>
+          <tr><th>Main Choices Coverage</th><td>${coveredList.filter(b => mainBets.includes(b)).length}/${mainBets.length} (${coverageMain.toFixed(2)}%)</td></tr>
+          <tr><th>Uncovered Bets</th><td>${uncoveredList.join(', ') || 'None'}</td></tr>
+        </table>
+      </div>
+    `;
 
-    // ---------- Uncovered Bets Table ----------
-    html += `<table class="table" border="1" cellpadding="5" cellspacing="0" style="width:100%;margin-bottom:15px;">
-      <thead>
-        <tr><th colspan="3">🚫 Uncovered Bets (${uncoveredList.length})</th></tr>
-        <tr><th>Code</th><th>Stake</th><th>Payout</th></tr>
-      </thead>
-      <tbody>
-        ${uncoveredList.map(code => `<tr>
-          <td>${code}</td>
-          <td>0</td>
-          <td>0</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>`;
+    // ---------- Bonus Game Table ----------
+    const bonusTable = `
+      <div class="section">
+        <h3>🎰 Bonus Game Bets</h3>
+        <table class="table">
+          <thead>
+            <tr><th>Bonus Game</th><th>Chosen</th><th>Stake</th><th>Payout</th><th>Multiplier</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            ${bonusBets.map(code => {
+              const chosen = uniqueBets.has(code);
+              const stake = stakes[code] || 0;
+              const payout = payouts[code] || 0;
+              const mult = payout > 0 ? (payout / stake).toFixed(2) + "x" : "-";
+              const status = payout > 0 ? "WIN" : chosen ? "LOSE" : "-";
+              return `
+                <tr>
+                  <td>${code}</td>
+                  <td style="color:${chosen ? "#0f0" : "#f00"}; font-weight:bold;">${chosen ? "Yes" : "No"}</td>
+                  <td>${chosen ? stake : "-"}</td>
+                  <td>${chosen ? (payout > 0 ? `<b style="color:#0f0;">${payout}</b>` : payout) : "-"}</td>
+                  <td>${chosen ? mult : "-"}</td>
+                  <td style="color:${status==="WIN"?"#0f0":status==="LOSE"?"#f00":"#999"}; font-weight:bold;">${status}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
 
-    // ---------- Update DOM ----------
-    result.innerHTML = html;
+    // ---------- Render ----------
+    result.innerHTML = betsTable + coverageTable + bonusTable;
+
+    // ---------- Badge ----------
+    badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
+    badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveredList.filter(b => mainBets.includes(b)).length}/${mainBets.length} Main Coverage)`;
 
   } catch (e) {
-    result.innerHTML = `<p style="color:red;">❌ Invalid JSON: ${e.message}</p>`;
+    result.innerHTML = `<p>⚠️ Invalid JSON or format: ${e.message}</p>`;
     badge.className = "status-badge status-warning";
     badge.textContent = "Error";
   }
 }
 
-// ---------- Call FUNKY TIME ----------
+// ---------- Call FunkyTimeCoverage ----------
 if (game === "funkytime") {
-  EVOFunkyTimeCoverage(jsonText, result, badge);
+  FunkyTimeCoverage(jsonText, result, badge);
 }
-
 
 
 
@@ -3506,6 +3516,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
