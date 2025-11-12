@@ -48,7 +48,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
     <option value="roulette">Roulette</option>
     <option value="sicbo">Sic Bo</option>
     <!--  <option value="lightningsicbo">Lightning Sic Bo (not working) </option> -->
-    <option value="fantan">Fan Tan</option>
+    <option value="">Fan Tan</option>
     <option value="monopoly">Monopoly Big Baller</option>
 	<option value="monopolylive">Monopoly LIVE</option>
     <option value="funkytime">Funky Time</option>
@@ -1188,56 +1188,54 @@ function analyzeFanTanCoverage(jsonText, result, badge) {
     const coveredOutcomes = new Set();
     const betCodes = Array.from(new Set(data.map(b => b.code).filter(Boolean)));
 
+    // ---------- Coverage logic ----------
     const addOutcomesForBet = (code) => {
       if (!code) return;
 
+      // ----- Single number -----
       if (code.match(/^FT_(\d)$/)) {
-        // Single number bet
         coveredOutcomes.add(code.split("_")[1]);
 
+      // ----- Kwok (2 numbers) -----
       } else if (code.startsWith("FT_Kwok_")) {
-        // Kwok bet (covers 2 outcomes)
         const match = code.match(/FT_Kwok_(\d)_(\d)/);
-        if (match) {
-          coveredOutcomes.add(match[1]);
-          coveredOutcomes.add(match[2]);
-        }
+        if (match) [match[1], match[2]].forEach(o => coveredOutcomes.add(o));
 
+      // ----- SSH (3 numbers) -----
       } else if (code.startsWith("FT_Ssh_")) {
-        // SSH bet (covers 3 outcomes)
         const match = code.match(/FT_Ssh_(\d)_(\d)_(\d)/);
-        if (match) {
-          coveredOutcomes.add(match[1]);
-          coveredOutcomes.add(match[2]);
-          coveredOutcomes.add(match[3]);
-        }
+        if (match) [match[1], match[2], match[3]].forEach(o => coveredOutcomes.add(o));
 
+      // ----- Nim (2 numbers, wrap-around included) -----
+      } else if (code.includes("_Nim_")) {
+        // ex- FT_3_Nim_1, FT_1_Nim_2
+        const match = code.match(/FT_(\d+)_Nim_(\d+)/);
+        if (match) [match[1], match[2]].forEach(o => coveredOutcomes.add(o));
+
+      // ----- Big / Small / Odd / Even -----
       } else if (code === "FT_Big") {
-        coveredOutcomes.add("3");
-        coveredOutcomes.add("4");
+        ["3", "4"].forEach(o => coveredOutcomes.add(o));
 
       } else if (code === "FT_Small") {
-        coveredOutcomes.add("1");
-        coveredOutcomes.add("2");
+        ["1", "2"].forEach(o => coveredOutcomes.add(o));
 
       } else if (code === "FT_Odd") {
-        coveredOutcomes.add("1");
-        coveredOutcomes.add("3");
+        ["1", "3"].forEach(o => coveredOutcomes.add(o));
 
       } else if (code === "FT_Even") {
-        coveredOutcomes.add("2");
-        coveredOutcomes.add("4");
+        ["2", "4"].forEach(o => coveredOutcomes.add(o));
       }
     };
 
     for (const code of betCodes) addOutcomesForBet(code);
 
+    // ---------- Coverage results ----------
     const covered = Array.from(coveredOutcomes).sort();
     const notCovered = allOutcomes.filter(o => !coveredOutcomes.has(o));
     const coveragePercent = (covered.length / allOutcomes.length) * 100;
     const isArb = coveragePercent >= 85;
 
-    // Map bets with stake, payout, net, and win badge
+    // ---------- Bet details ----------
     const betDetails = data.map(b => ({
       code: b.code,
       stake: b.stake || 0,
@@ -1246,12 +1244,11 @@ function analyzeFanTanCoverage(jsonText, result, badge) {
       winBadge: (b.payout || 0) > 0 ? '<span class="badge badge-win">Win</span>' : ''
     }));
 
-    // Compute totals
     const totalStake = betDetails.reduce((sum, b) => sum + b.stake, 0);
     const totalPayout = betDetails.reduce((sum, b) => sum + b.payout, 0);
     const totalNet = (totalPayout - totalStake).toFixed(2);
 
-    // ---------- Render Tables ----------
+    // ---------- Render output ----------
     result.innerHTML = `
       <div class="section"><h3>🎲 Fan Tan Bets Table</h3>
         <table class="table">
@@ -1313,10 +1310,17 @@ function analyzeFanTanCoverage(jsonText, result, badge) {
     badge.textContent = "Error";
   }
 }
-// calling fantan blub blub
+
+// ---------- Call Fan Tan nte nte nye----------
 if (game === "fantan") {
   analyzeFanTanCoverage(jsonText, result, badge);
 }
+
+
+
+
+
+	
 
 
 
@@ -3516,6 +3520,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
