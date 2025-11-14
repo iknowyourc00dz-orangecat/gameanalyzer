@@ -3551,7 +3551,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
     // ---------- FINAL HTML ----------
     result.innerHTML = `
       <div class="section">
-        <h2>🃏 Kingmaker Card Matka — Bet Breakdown</h2>
+        <h2>🃏 Kingmaker Card Matka</h2>
 
         ${buildTable("🎯 EXACT BETS", exactBets)}
         ${buildTable("♣ SUIT BETS", suitBets)}
@@ -3570,7 +3570,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
 
     // ---------- BADGE ----------
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
-    badge.textContent = `${coveragePercent.toFixed(2)}% Coverage — ${isArb ? "ARB" : "Not ARB"}`;
+    badge.textContent = `${coveragePercent.toFixed(2)}% Outcome Coverage — ${isArb ? "ARB" : "Not ARB"}`;
 
   } catch (err) {
     result.innerHTML = `<p>⚠️ Error parsing Card Matka JSON: ${err.message}</p>`;
@@ -3706,6 +3706,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
