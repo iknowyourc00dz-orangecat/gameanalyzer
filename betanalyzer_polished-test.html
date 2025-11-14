@@ -69,6 +69,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
     <option value="numbermatka">Number Matka</option>
      <option value="cointoss">Coin Toss</option>
 	 <option value="colorgame">Color Game</option>
+ 	 <option value="cardmatka">Card Matka</option>
 	 <option value="andarbahar">Andar Bahar</option>
 	  <option value="ft">Fan Tan (KM)</option>
   </optgroup>
@@ -3305,6 +3306,7 @@ if (game === "ft") {
   ftBetAnalyzer(jsonText, result, badge);
 }
 
+
 	
 
 
@@ -3400,6 +3402,202 @@ if (game === "dtp") {
     badge.className = "status-badge status-warning";
     badge.textContent = "Error";
   }
+}
+
+
+
+
+
+
+
+
+	// CARD MATKA WHATEVER TF THIS IS
+function kingmakerCardMatka(jsonText, result, badge) {
+  try {
+    const data = JSON.parse(jsonText);
+    const betString = data.betType || "";
+    const parts = betString.split(",").map(s => s.trim());
+
+    // ---------- All 12 Card Outcomes ----------
+    const allOutcomes = [
+      "J♦","J♣","J♥","J♠",
+      "Q♦","Q♣","Q♥","Q♠",
+      "K♦","K♣","K♥","K♠"
+    ];
+
+    // ---------- COLOR CODING ----------
+    const colorCard = (c) => {
+      if (c.includes("J")) return `<span style="color:#6cf;font-weight:bold">${c}</span>`;
+      if (c.includes("Q")) return `<span style="color:#ff7dff;font-weight:bold">${c}</span>`;
+      if (c.includes("K")) return `<span style="color:#ffd56c;font-weight:bold">${c}</span>`;
+      return c;
+    };
+
+    // ---------- Payout Multipliers ----------
+    const MULTIPLIERS = {
+      // EXACT
+      "pr-jack-diamonds": 12, "pr-jack-clubs": 12, "pr-jack-hearts": 12, "pr-jack-spades": 12,
+      "pr-queen-diamonds": 12, "pr-queen-clubs": 12, "pr-queen-hearts": 12, "pr-queen-spades": 12,
+      "pr-king-diamonds": 12, "pr-king-clubs": 12, "pr-king-hearts": 12, "pr-king-spades": 12,
+
+      // VALUES
+      "pr-jacks": 3, "pr-queens": 3, "pr-kings": 3,
+
+      // SUITS
+      "pr-clubs": 4, "pr-diamonds": 4, "pr-hearts": 4, "pr-spades": 4
+    };
+
+    // ---------- EXACT MAP ----------
+    const EXACT_MAP = {
+      "pr-jack-diamonds": "J♦",
+      "pr-jack-clubs": "J♣",
+      "pr-jack-hearts": "J♥",
+      "pr-jack-spades": "J♠",
+
+      "pr-queen-diamonds": "Q♦",
+      "pr-queen-clubs": "Q♣",
+      "pr-queen-hearts": "Q♥",
+      "pr-queen-spades": "Q♠",
+
+      "pr-king-diamonds": "K♦",
+      "pr-king-clubs": "K♣",
+      "pr-king-hearts": "K♥",
+      "pr-king-spades": "K♠"
+    };
+
+    // ---------- VALUE MAP ----------
+    const VALUE_MAP = {
+      "pr-jacks": ["J♦","J♣","J♥","J♠"],
+      "pr-queens": ["Q♦","Q♣","Q♥","Q♠"],
+      "pr-kings": ["K♦","K♣","K♥","K♠"]
+    };
+
+    // ---------- SUIT MAP ----------
+    const SUIT_MAP = {
+      "pr-clubs": ["J♣","Q♣","K♣"],
+      "pr-diamonds": ["J♦","Q♦","K♦"],
+      "pr-hearts": ["J♥","Q♥","K♥"],
+      "pr-spades": ["J♠","Q♠","K♠"]
+    };
+
+    // ---------- Summary ----------
+    const betSummary = {};
+    let totalStake = 0;
+
+    parts.forEach(p => {
+      const match = p.match(/^(.*?)\s*:\s*(\d+(\.\d+)?)/);
+      if (!match) return;
+      const betName = match[1].trim();
+      const stake = parseFloat(match[2]);
+
+      if (!betSummary[betName])
+        betSummary[betName] = { stake: 0, payout: 0, outcomes: [], multiplier: MULTIPLIERS[betName] || 0 };
+
+      betSummary[betName].stake += stake;
+      totalStake += stake;
+
+      // outcomes
+      if (EXACT_MAP[betName]) betSummary[betName].outcomes.push(EXACT_MAP[betName]);
+      if (VALUE_MAP[betName]) VALUE_MAP[betName].forEach(o => betSummary[betName].outcomes.push(o));
+      if (SUIT_MAP[betName]) SUIT_MAP[betName].forEach(o => betSummary[betName].outcomes.push(o));
+    });
+
+    const profit = parseFloat(data.profit || 0);
+    const totalPayout = totalStake + profit;
+
+    // proportion payout
+    if ((data.gameResult || "").toLowerCase() === "win" && totalStake > 0) {
+      for (const b in betSummary) {
+        const bet = betSummary[b];
+        bet.payout = bet.stake + (profit * (bet.stake / totalStake));
+      }
+    }
+
+    // ---------- Compute Coverage ----------
+    const covered = new Set();
+    for (const b in betSummary) {
+      betSummary[b].outcomes.forEach(o => covered.add(o));
+    }
+
+    const coveragePercent = (covered.size / allOutcomes.length) * 100;
+
+    // ---------- ARB RULES ----------
+    let isArb = false;
+
+    if (coveragePercent >= 85) isArb = true;
+    if (covered.size >= 10) isArb = true;
+
+    const betNames = Object.keys(betSummary);
+
+    if (
+      betNames.includes("pr-queens") &&
+      betNames.includes("pr-clubs") &&
+      betNames.includes("pr-king-clubs")
+    ) isArb = true;
+
+    // ---------- SPLIT TABLES ----------
+    const exactBets = Object.keys(betSummary).filter(b => EXACT_MAP[b]);
+    const suitBets = Object.keys(betSummary).filter(b => SUIT_MAP[b]);
+    const valueBets = Object.keys(betSummary).filter(b => VALUE_MAP[b]);
+
+    // ---------- HTML ----------
+    const buildTable = (title, list) => `
+      <h3>${title}</h3>
+      <table class="table">
+        <thead>
+          <tr><th>Bet</th><th>Stake</th><th>Multiplier</th><th>Outcomes</th><th>Coverage</th></tr>
+        </thead>
+        <tbody>
+          ${list.map(b => {
+            const bet = betSummary[b];
+            const unique = [...new Set(bet.outcomes)];
+            const cov = (unique.length / 12 * 100).toFixed(2);
+
+            return `
+              <tr>
+                <td>${b}</td>
+                <td>${bet.stake.toFixed(2)}</td>
+                <td>x${bet.multiplier}</td>
+                <td>${unique.map(colorCard).join(", ")}</td>
+                <td>${unique.length}/12 (${cov}%)</td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+
+    result.innerHTML = `
+      <div class="section">
+        <h2>🃏 Kingmaker Card Matka — Bet Breakdown</h2>
+
+        ${buildTable("🎯 EXACT BETS", exactBets)}
+        ${buildTable("♣ SUIT BETS", suitBets)}
+        ${buildTable("👑 VALUE BETS", valueBets)}
+
+        <h3>💰 Summary</h3>
+        <table class="table">
+          <tr><th>Total Stake</th><td>${totalStake.toFixed(2)}</td></tr>
+          <tr><th>Total Payout</th><td>${totalPayout.toFixed(2)}</td></tr>
+          <tr><th>Total Profit</th><td>${profit.toFixed(2)}</td></tr>
+          <tr><th>Card Coverage</th><td>${covered.size}/12 (${coveragePercent.toFixed(2)}%)</td></tr>
+          <tr><th>ARB Status</th><td>${isArb ? "✅ ARB" : "❌ Not ARB"}</td></tr>
+        </table>
+      </div>
+    `;
+
+    // ---------- BADGE ----------
+    badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
+    badge.textContent = `${coveragePercent.toFixed(2)}% Coverage — ${isArb ? "ARB" : "Not ARB"}`;
+
+  } catch (err) {
+    result.innerHTML = `<p>⚠️ Error parsing Card Matka JSON: ${err.message}</p>`;
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+  }
+}
+
+// ---------- CALLER ----------
+if (game === "cardmatka") {
+  kingmakerCardMatka(jsonText, result, badge);
 }
 
 
@@ -3520,6 +3718,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
