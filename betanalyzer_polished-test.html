@@ -3411,7 +3411,7 @@ if (game === "dtp") {
 
 
 
-	// CARD MATKA WHATEVER TF THIS IS
+// CARD MATKA WHATEVER TF THIS IS
 function kingmakerCardMatka(jsonText, result, badge) {
   try {
     const data = JSON.parse(jsonText);
@@ -3433,21 +3433,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
       return c;
     };
 
-    // ---------- Payout Multipliers ----------
-    const MULTIPLIERS = {
-      // EXACT
-      "pr-jack-diamonds": 12, "pr-jack-clubs": 12, "pr-jack-hearts": 12, "pr-jack-spades": 12,
-      "pr-queen-diamonds": 12, "pr-queen-clubs": 12, "pr-queen-hearts": 12, "pr-queen-spades": 12,
-      "pr-king-diamonds": 12, "pr-king-clubs": 12, "pr-king-hearts": 12, "pr-king-spades": 12,
-
-      // VALUES
-      "pr-jacks": 3, "pr-queens": 3, "pr-kings": 3,
-
-      // SUITS
-      "pr-clubs": 4, "pr-diamonds": 4, "pr-hearts": 4, "pr-spades": 4
-    };
-
-    // ---------- EXACT MAP ----------
+    // ---------- Maps ----------
     const EXACT_MAP = {
       "pr-jack-diamonds": "J♦",
       "pr-jack-clubs": "J♣",
@@ -3465,14 +3451,12 @@ function kingmakerCardMatka(jsonText, result, badge) {
       "pr-king-spades": "K♠"
     };
 
-    // ---------- VALUE MAP ----------
     const VALUE_MAP = {
       "pr-jacks": ["J♦","J♣","J♥","J♠"],
       "pr-queens": ["Q♦","Q♣","Q♥","Q♠"],
       "pr-kings": ["K♦","K♣","K♥","K♠"]
     };
 
-    // ---------- SUIT MAP ----------
     const SUIT_MAP = {
       "pr-clubs": ["J♣","Q♣","K♣"],
       "pr-diamonds": ["J♦","Q♦","K♦"],
@@ -3491,12 +3475,11 @@ function kingmakerCardMatka(jsonText, result, badge) {
       const stake = parseFloat(match[2]);
 
       if (!betSummary[betName])
-        betSummary[betName] = { stake: 0, payout: 0, outcomes: [], multiplier: MULTIPLIERS[betName] || 0 };
+        betSummary[betName] = { stake: 0, payout: 0, outcomes: [] };
 
       betSummary[betName].stake += stake;
       totalStake += stake;
 
-      // outcomes
       if (EXACT_MAP[betName]) betSummary[betName].outcomes.push(EXACT_MAP[betName]);
       if (VALUE_MAP[betName]) VALUE_MAP[betName].forEach(o => betSummary[betName].outcomes.push(o));
       if (SUIT_MAP[betName]) SUIT_MAP[betName].forEach(o => betSummary[betName].outcomes.push(o));
@@ -3505,7 +3488,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
     const profit = parseFloat(data.profit || 0);
     const totalPayout = totalStake + profit;
 
-    // proportion payout
+    // Distributed payout
     if ((data.gameResult || "").toLowerCase() === "win" && totalStake > 0) {
       for (const b in betSummary) {
         const bet = betSummary[b];
@@ -3521,7 +3504,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
 
     const coveragePercent = (covered.size / allOutcomes.length) * 100;
 
-    // ---------- ARB RULES ----------
+    // ---------- ARB CONDITIONS ----------
     let isArb = false;
 
     if (coveragePercent >= 85) isArb = true;
@@ -3540,12 +3523,12 @@ function kingmakerCardMatka(jsonText, result, badge) {
     const suitBets = Object.keys(betSummary).filter(b => SUIT_MAP[b]);
     const valueBets = Object.keys(betSummary).filter(b => VALUE_MAP[b]);
 
-    // ---------- HTML ----------
+    // ---------- TABLE BUILDER (no multiplier) ----------
     const buildTable = (title, list) => `
       <h3>${title}</h3>
       <table class="table">
         <thead>
-          <tr><th>Bet</th><th>Stake</th><th>Multiplier</th><th>Outcomes</th><th>Coverage</th></tr>
+          <tr><th>Bet</th><th>Stake</th><th>Payout</th><th>Outcomes</th><th>Coverage</th></tr>
         </thead>
         <tbody>
           ${list.map(b => {
@@ -3557,7 +3540,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
               <tr>
                 <td>${b}</td>
                 <td>${bet.stake.toFixed(2)}</td>
-                <td>x${bet.multiplier}</td>
+                <td>${bet.payout.toFixed(2)}</td>
                 <td>${unique.map(colorCard).join(", ")}</td>
                 <td>${unique.length}/12 (${cov}%)</td>
               </tr>`;
@@ -3565,6 +3548,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
         </tbody>
       </table>`;
 
+    // ---------- FINAL HTML ----------
     result.innerHTML = `
       <div class="section">
         <h2>🃏 Kingmaker Card Matka — Bet Breakdown</h2>
@@ -3604,6 +3588,10 @@ if (game === "cardmatka") {
 
 
 
+
+
+
+	
 	// ---------- MONOPOLY Live ---------- No guaranteed win - payout depends on which number hits | but with bonus present its still bonus abuse if arb pattern is met, else let go
 if (game === "monopolylive") {
   let bets;
@@ -3718,6 +3706,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
