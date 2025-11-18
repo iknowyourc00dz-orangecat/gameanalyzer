@@ -1585,12 +1585,13 @@ function FunkyTimeCoverage(jsonText, result, badge) {
     // ---------- Parse Data ----------
     data.forEach(entry => {
       if (!entry.code) return;
+
       const code = normalizationMap[entry.code.toUpperCase()] || entry.code.trim();
       if (!validBets.includes(code)) return;
 
       const stake = Number(entry.stake) || 0;
       const payout = Number(entry.payout) || 0;
-      const multiplier = stake > 0 ? (payout / stake).toFixed(2) : 0;
+      const multiplier = stake > 0 ? (payout / stake).toFixed(2) : "0";
 
       uniqueBets.add(code);
       totalStake += stake;
@@ -1613,11 +1614,54 @@ function FunkyTimeCoverage(jsonText, result, badge) {
     const coveredList = Array.from(uniqueBets).sort();
     const uncoveredList = validBets.filter(code => !uniqueBets.has(code)).sort();
 
-    const coverageAll = (coveredList.length / validBets.length) * 100;
-    const coverageMain = (coveredList.filter(b => mainBets.includes(b)).length / mainBets.length) * 100;
+    const coveredMain = coveredList.filter(b => mainBets.includes(b));
+    const coveredBonus = coveredList.filter(b => bonusBets.includes(b));
 
-    const isArb = coverageMain >= 85; // ✅ ARB if main coverage ≥ 85%
+    const coverageAll = (coveredList.length / validBets.length) * 100;
+    const coverageMain = (coveredMain.length / mainBets.length) * 100;
+
     const net = (totalPayout - totalStake).toFixed(2);
+
+
+    let arbReason = "";
+    let isArb = false;
+
+    // ---------- 1. Coverage Arbitrage ----------
+    const coverageArb = coverageMain >= 85;
+
+    if (coverageArb) {
+      isArb = true;
+      arbReason += "• High main-segment coverage (≥85%)\n";
+    }
+
+    // ---------- 2. Identical Stake Arbitrage ----------
+    let identicalStake = false;
+    if (coveredMain.length >= 3) {
+      const stakesArr = coveredMain.map(code => stakes[code]);
+      const allEqual = stakesArr.every(v => v === stakesArr[0]);
+      if (allEqual) {
+        identicalStake = true;
+        isArb = true;
+        arbReason += "• Identical stake pattern across main segments\n";
+      }
+    }
+
+    // ---------- 3. Low Variance Arbitrage ----------
+    const lowVarianceArb =
+      coveredMain.length >= 4 &&
+      coveredBonus.length === 0 &&
+      identicalStake;
+
+    if (lowVarianceArb) {
+      isArb = true;
+      arbReason += "• Low-variance main bet coverage (no bonus bets + uniform stakes)\n";
+    }
+
+    // ---------- If NOT arb, give reason ----------
+    if (!isArb) arbReason = "• Normal betting pattern detected";
+
+    // ============================================================
+
 
     // ---------- Bets Table ----------
     const betsTable = `
@@ -1654,7 +1698,7 @@ function FunkyTimeCoverage(jsonText, result, badge) {
         <h3>📊 Coverage Summary</h3>
         <table class="table">
           <tr><th>Overall Coverage</th><td>${coveredList.length}/${validBets.length} (${coverageAll.toFixed(2)}%)</td></tr>
-          <tr><th>Main Choices Coverage</th><td>${coveredList.filter(b => mainBets.includes(b)).length}/${mainBets.length} (${coverageMain.toFixed(2)}%)</td></tr>
+          <tr><th>Main Choices Coverage</th><td>${coveredMain.length}/${mainBets.length} (${coverageMain.toFixed(2)}%)</td></tr>
           <tr><th>Uncovered Bets</th><td>${uncoveredList.join(', ') || 'None'}</td></tr>
         </table>
       </div>
@@ -1691,12 +1735,26 @@ function FunkyTimeCoverage(jsonText, result, badge) {
       </div>
     `;
 
+    // ---------- ARB Reason Output ----------
+    const arbReasonBox = `
+      <div class="section">
+        <h3>🚨 ARB Analysis</h3>
+        <pre style="white-space:pre-wrap; background:#111; padding:10px; border-radius:6px; color:#0ff; font-size:13px;">
+${arbReason.trim()}
+        </pre>
+      </div>
+    `;
+
     // ---------- Render ----------
-    result.innerHTML = betsTable + coverageTable + bonusTable;
+    result.innerHTML =
+      betsTable +
+      coverageTable +
+      bonusTable +
+      arbReasonBox;
 
     // ---------- Badge ----------
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
-    badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveredList.filter(b => mainBets.includes(b)).length}/${mainBets.length} Main Coverage)`;
+    badge.textContent = isArb ? "ARB ✅" : "NOT ARB ❌";
 
   } catch (e) {
     result.innerHTML = `<p>⚠️ Invalid JSON or format: ${e.message}</p>`;
@@ -1705,11 +1763,10 @@ function FunkyTimeCoverage(jsonText, result, badge) {
   }
 }
 
-// ---------- Call FunkyTimeCoverage ----------
+// ----------  funky time - fuck this game ----------
 if (game === "funkytime") {
   FunkyTimeCoverage(jsonText, result, badge);
 }
-
 
 
 
@@ -3706,6 +3763,7 @@ if (game === "monopolylive") {
 
 
 </body></html>
+
 
 
 
