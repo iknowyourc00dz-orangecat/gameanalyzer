@@ -60,6 +60,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
 	<option value="lightningdice">Lightning Dice</option>
 	<option value="crazyballs">Crazy Balls</option>
 	<option value="dtp">Dragon Tiger Phoenix</option>
+	<option value="DoA_Saloon">Dead or Alive: Saloon</option>
   </optgroup>
 
   <!-- KingMaker -->
@@ -3648,6 +3649,134 @@ if (game === "cardmatka") {
 
 
 
+
+
+// DEAD OF ALIVE SALOON ---- EVO CASINO
+if (game === "DoA_Saloon") {
+
+  let bets;
+  try {
+    bets = JSON.parse(jsonText);
+  } catch (e) {
+    result.innerHTML = "<p>⚠️ Invalid JSON or empty input</p>";
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+    return;
+  }
+
+  if (!bets || !bets.length) {
+    result.innerHTML = "<p>⚠️ No bets placed</p>";
+    badge.className = "status-badge status-warning";
+    badge.textContent = "Error";
+    return;
+  }
+
+  // --- Card universe (52 outcomes) ---
+  const RANKS = ["Ace","2","3","4","5","6","7","8","9","10","Jack","Queen","King"];
+  const SUITS = ["Clubs","Diamonds","Hearts","Spades"];
+
+  const ALL_CARDS = [];
+  RANKS.forEach(r => SUITS.forEach(s => ALL_CARDS.push(`${r}_${s}`)));
+
+  // --- Decode DAS bet code ---
+  function getCoveredCards(code) {
+    // Single card bet: DAS_10_Clubs, DAS_Ace_Spades, etc
+    const single = code.match(/^DAS_(Ace|King|Queen|Jack|\d+)_([A-Za-z]+)$/);
+    if (single) {
+      return [`${single[1]}_${single[2]}`];
+    }
+
+    return [];
+  }
+
+  // --- Calculate totals & coverage ---
+  let totalStake = 0;
+  let totalPayout = 0;
+  let coveredSet = new Set();
+
+  const betRows = bets.map(b => {
+    const cards = getCoveredCards(b.code);
+    cards.forEach(c => coveredSet.add(c));
+
+    totalStake += Number(b.stake) || 0;
+    totalPayout += Number(b.payout) || 0;
+
+    return `<tr>
+      <td>${b.code}</td>
+      <td>${b.stake}</td>
+      <td>${b.payout}</td>
+      <td>${cards.length ? cards.join(", ") : "-"}</td>
+      <td>${b.payout > 0 ? '<span class="badge badge-win">Win</span>' : ''}</td>
+    </tr>`;
+  }).join("");
+
+  const TOTAL = ALL_CARDS.length; // 52
+  const covered = [...coveredSet];
+  const uncovered = ALL_CARDS.filter(c => !coveredSet.has(c));
+
+  const coveredPercent = (covered.length / TOTAL) * 100;
+  const net = (totalPayout - totalStake).toFixed(2);
+
+  // --- ARB logic (same style as roulette) ---
+  const status = coveredPercent >= 85 ? "ARB" : "Not ARB";
+
+  badge.className = "status-badge " + (status === "ARB" ? "status-arb" : "status-notarb");
+  badge.textContent = `${status} (${coveredPercent.toFixed(2)}%)`;
+
+  // --- Coverage tables ---
+  const coveredRows = covered.map(c =>
+    `<tr><td>${c}</td><td><span class="badge badge-covered">Covered</span></td></tr>`
+  ).join("");
+
+  const uncoveredRows = uncovered.map(c =>
+    `<tr><td>${c}</td><td><span class="badge badge-uncovered">Uncovered</span></td></tr>`
+  ).join("");
+
+  // --- Output ---
+  result.innerHTML = `
+    <div class="section"><h3>🤠 Dead or Alive: Saloon – Bets</h3>
+      <table class="table">
+        <tr>
+          <th>Bet Code</th>
+          <th>Stake</th>
+          <th>Payout</th>
+          <th>Cards Covered</th>
+          <th>Winning?</th>
+        </tr>
+        ${betRows}
+        <tr>
+          <th>Total</th>
+          <td>${totalStake}</td>
+          <td>${totalPayout}</td>
+          <td>-</td>
+          <td>Net: ${net}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section"><h3>✅ Covered Cards (${covered.length}/${TOTAL})</h3>
+      <table class="table">
+        <tr><th>Card</th><th>Status</th></tr>
+        ${coveredRows}
+      </table>
+    </div>
+
+    <div class="section"><h3>❌ Uncovered Cards (${uncovered.length}/${TOTAL})</h3>
+      <table class="table">
+        <tr><th>Card</th><th>Status</th></tr>
+        ${uncoveredRows}
+      </table>
+    </div>
+  `;
+}
+
+
+
+
+	
+
+
+
 	
 	// ---------- MONOPOLY Live ---------- No guaranteed win - payout depends on which number hits | but with bonus present its still bonus abuse if arb pattern is met, else let go
 if (game === "monopolylive") {
@@ -3763,14 +3892,5 @@ if (game === "monopolylive") {
 
 
 </body></html>
-
-
-
-
-
-
-
-
-
 
 
