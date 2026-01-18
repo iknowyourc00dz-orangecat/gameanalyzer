@@ -13,13 +13,13 @@
   --accent: #3be8c9;
   --danger: #ff6b6b;
   --glass: rgba(255,255,255,0.03);
-  --closest-bg: rgba(59, 232, 201, 0.5);
+  --closest-bg: rgba(59,232,201,0.45);
 }
 
 body {
   background: var(--bg);
   color: #e6eef6;
-  font-family: Poppins,sans-serif;
+  font-family: Poppins, sans-serif;
   margin: 0;
   padding: 24px;
 }
@@ -27,7 +27,6 @@ body {
 .wrap { max-width: 1000px; margin: auto; }
 
 h1 { margin: 0 0 6px; font-size: 26px; }
-
 p.lead { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
 
 .card {
@@ -56,13 +55,11 @@ button {
   background: var(--accent);
   border: none;
   border-radius: 8px;
-  padding: 10px 20px;
+  padding: 10px 18px;
   font-weight: 600;
   cursor: pointer;
   color: #032326;
-  transition: 0.2s;
 }
-button:hover { opacity: 0.85; }
 
 button.secondary {
   background: transparent;
@@ -75,7 +72,7 @@ button.secondary {
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 8px;
   font-size: 13px;
 }
 
@@ -84,26 +81,25 @@ thead th {
   border-bottom: 2px solid rgba(255,255,255,.2);
   color: var(--muted);
   text-align: left;
-  position: sticky;
-  top: 0;
   background: var(--card);
-  z-index: 1;
   cursor: pointer;
 }
 
 td {
   padding: 8px;
-  border-bottom: 1px solid rgba(255,255,255,.05);
+  border-bottom: 1px solid rgba(255,255,255,.06);
 }
 
 tr.closest {
-  background: var(--closest-bg) !important;
+  background: var(--closest-bg);
   font-weight: 700;
-  font-size: 14px;
   color: #032326;
 }
 
-tr:hover { background: rgba(59,232,201,0.15); cursor: pointer; }
+tr:hover {
+  background: rgba(59,232,201,0.15);
+  cursor: pointer;
+}
 
 td.loss { color: var(--danger); font-weight: 600; }
 td.win { color: var(--accent); font-weight: 600; }
@@ -111,14 +107,26 @@ td.win { color: var(--accent); font-weight: 600; }
 #searchInput {
   width: 100%;
   padding: 8px 10px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   border-radius: 8px;
   border: none;
   background: var(--glass);
   color: #e6eef6;
-  font-size: 14px;
-  outline: none;
 }
+
+.copy-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--accent);
+  color: #032326;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  opacity: 0;
+  transition: 0.25s;
+}
+.copy-toast.show { opacity: 1; }
 
 footer { font-size: 12px; color: var(--muted); margin-top: 16px; }
 </style>
@@ -127,26 +135,21 @@ footer { font-size: 12px; color: var(--muted); margin-top: 16px; }
 <body>
 <div class="wrap">
 <h1>Force Serve Forensics — Log Analyzer</h1>
-<p class="lead">Cyan = closest bet BEFORE Force Serve • Red = loss • Green = win. Click any row to copy raw log.</p>
+<p class="lead">Cyan = closest bet BEFORE Force Serve • Red = loss • Green = win • Click any row to copy raw log</p>
 
 <div class="card">
-<label>Paste raw logs</label>
-<textarea id="logs"></textarea>
+<textarea id="logs" placeholder="Paste raw logs here..."></textarea>
+<input id="fsTime" style="margin-top:10px" placeholder="2026/01/10 17:26:30 (GMT+06:00)">
 
-<label style="margin-top:10px">Force Serve time</label>
-<input id="fsTime" placeholder="2026/01/10 17:26:30 (GMT+06:00)">
-
-<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+<div style="margin-top:12px;display:flex;gap:10px">
   <button id="analyzeBtn">Analyze</button>
   <button id="exportCsv" class="secondary">Export CSV</button>
 </div>
 
-<div id="summary" class="small" style="margin-top:8px; padding:12px; background:rgba(59,232,201,0.1); border-radius:8px;"></div>
+<div id="summary" class="small" style="margin-top:10px"></div>
 </div>
 
 <div class="card">
-<h3 class="small">Events</h3>
-<div class="small" style="margin-bottom:6px;">Click any row to copy raw log</div>
 <input id="searchInput" placeholder="Search table...">
 <div id="eventsPane" style="max-height:420px;overflow:auto"></div>
 </div>
@@ -154,97 +157,108 @@ footer { font-size: 12px; color: var(--muted); margin-top: 16px; }
 <footer>Always confirm conclusions with DB logs</footer>
 </div>
 
+<div class="copy-toast" id="toast">Copied</div>
+
 <script>
+function toast(){
+  const t=document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),900);
+}
+
 function parseTimestampWithTZ(text){
-  const re=/(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})\s+(\d{1,2}:\d{2}:\d{2})(?:\s*\(GMT([+-]\d{2}):?(\d{2})\))?/;
-  const m=text.match(re);
+  const r=/(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})\s+(\d{1,2}:\d{2}:\d{2})(?:\s*\(GMT([+-]\d{2}):?(\d{2})\))?/;
+  const m=text.match(r);
   if(!m) return null;
-  const date=m[1].replace(/\//g,'-');
-  const time=m[2];
-  const tzH=m[3]??'+00';
-  const tzM=m[4]??'00';
-  return {raw:`${m[1]} ${m[2]} (GMT${tzH}:${tzM})`,utc:new Date(`${date}T${time}${tzH}:${tzM}`)};
+  const d=m[1].replace(/\//g,'-');
+  const t=m[2];
+  const h=m[3]??'+00';
+  const mm=m[4]??'00';
+  return { raw:`${m[1]} ${m[2]} (GMT${h}:${mm})`, utc:new Date(`${d}T${t}${h}:${mm}`) };
 }
 
 function parseLine(line){
-  const parts=line.split(/\t|\s{2,}/).filter(Boolean);
-  if(parts.length<5) return null;
+  const p=line.split(/\t|\s{2,}/).filter(Boolean);
+  if(p.length<5) return null;
 
-  let ts=parseTimestampWithTZ(parts[0]);
-  if(!ts) for(let i=1;i<3;i++){ts=parseTimestampWithTZ(parts[i]); if(ts) break;}
+  let ts=null;
+  for(let i=0;i<3;i++){ ts=parseTimestampWithTZ(p[i]); if(ts) break; }
   if(!ts) return null;
 
-  let provider=parts.find((p,i)=>i>2&&isNaN(parseFloat(p))&&!p.includes('('))??'Unknown';
-  let idx=parts.indexOf(provider);
-  let category=parts[idx+1]??'Unknown';
-  let game=parts[idx+2]??'Unknown';
+  const provider=p.find(x=>isNaN(x)&&!x.includes('('))||'Unknown';
+  const i=p.indexOf(provider);
 
-  let bet=0,win=0;
-  for(let i=idx+3;i<parts.length;i++){
-    let p=parts[i].replace(/,/g,'').trim();
-    if(/^\(.*\)$/.test(p)) win=-parseFloat(p.replace(/[()]/g,''));
-    else if(!bet) bet=parseFloat(p);
-    else if(!win) win=parseFloat(p);
+  let bet=0, win=0;
+  for(let j=i+3;j<p.length;j++){
+    let v=p[j].replace(/,/g,'');
+    if(/^\(.*\)$/.test(v)) win=-parseFloat(v.replace(/[()]/g,''));
+    else if(!bet) bet=parseFloat(v);
+    else if(!win) win=parseFloat(v);
   }
-  return {timeRaw:ts.raw,utc:ts.utc,provider,category,game,bet,win,raw:line};
+
+  return { timeRaw:ts.raw, utc:ts.utc, provider, category:p[i+1], game:p[i+2], bet, win, raw:line };
 }
 
 function parseLogs(raw){
-  return raw.split('\n').map(l=>l.trim()).filter(Boolean).map(parseLine).filter(Boolean)
-             .sort((a,b)=>a.utc-b.utc);
+  return raw.split('\n').map(l=>parseLine(l.trim())).filter(Boolean).sort((a,b)=>a.utc-b.utc);
 }
 
-function analyzeBeforeForceServe(events,fs){
-  let closest=null,min=Infinity;
+function analyze(events, fs){
+  let c=null, m=Infinity;
   for(const e of events){
-    if(e.utc>=fs.utc) continue;
-    const d=fs.utc-e.utc;
-    if(d<min){min=d; closest=e;}
+    if(e.utc<fs.utc && fs.utc-e.utc<m){ m=fs.utc-e.utc; c=e; }
   }
-  return {closest,gap:min};
+  return { closest:c, gap:m };
 }
 
 let sortState={};
 
-function render(events,fs,closest){
+function render(events, closest){
   const pane=document.getElementById('eventsPane');
   const table=document.createElement('table');
-  table.innerHTML=`<thead><tr>
-    <th data-col="timeRaw">Time</th>
-    <th data-col="provider">Provider</th>
-    <th data-col="category">Category</th>
-    <th data-col="game">Game</th>
-    <th data-col="bet">Bet</th>
-    <th data-col="win">Win/Loss</th>
-  </tr></thead>`;
-  const tbody=document.createElement('tbody');
 
-  for(const e of events){
+  table.innerHTML=`
+    <thead><tr>
+      <th data-k="timeRaw">Time</th>
+      <th data-k="provider">Provider</th>
+      <th data-k="category">Category</th>
+      <th data-k="game">Game</th>
+      <th data-k="bet">Bet</th>
+      <th data-k="win">Win/Loss</th>
+    </tr></thead>`;
+
+  const tb=document.createElement('tbody');
+  events.forEach(e=>{
     const tr=document.createElement('tr');
-    tr.title=e.raw;
     if(e===closest) tr.classList.add('closest');
-    tr.innerHTML=`<td>${e.timeRaw}</td><td>${e.provider}</td><td>${e.category}</td>
-                  <td>${e.game}</td><td class="${e.win<0?'loss':'win'}">${e.bet}</td>
-                  <td class="${e.win<0?'loss':'win'}">${e.win}</td>`;
-    tr.onclick=()=>navigator.clipboard.writeText(e.raw);
-    tbody.appendChild(tr);
-  }
+    tr.innerHTML=`
+      <td>${e.timeRaw}</td>
+      <td>${e.provider}</td>
+      <td>${e.category}</td>
+      <td>${e.game}</td>
+      <td class="${e.win<0?'loss':'win'}">${e.bet}</td>
+      <td class="${e.win<0?'loss':'win'}">${e.win}</td>`;
+    tr.onclick=()=>{ navigator.clipboard.writeText(e.raw); toast(); };
+    tb.appendChild(tr);
+  });
 
-  table.appendChild(tbody);
-  pane.innerHTML=''; pane.appendChild(table);
+  table.appendChild(tb);
+  pane.innerHTML='';
+  pane.appendChild(table);
 
+  /* 🔥 AUTO-SCROLL TO CLOSEST BET */
   setTimeout(()=>{
-    const row=document.querySelector('tr.closest');
-    if(row) row.scrollIntoView({behavior:'smooth',block:'center'});
-  },200);
+    const row=pane.querySelector('tr.closest');
+    if(row) row.scrollIntoView({ behavior:'smooth', block:'center' });
+  },150);
 
-  table.querySelectorAll('thead th').forEach(th=>{
+  table.querySelectorAll('th').forEach(th=>{
     th.onclick=()=>{
-      const col=th.dataset.col;
-      const dir=sortState[col]==='asc'?'desc':'asc';
-      sortState[col]=dir;
-      events.sort((a,b)=>a[col]<b[col]? (dir==='asc'?-1:1):a[col]>b[col]?(dir==='asc'?1:-1):0);
-      render(events,fs,closest);
+      const k=th.dataset.k;
+      const d=sortState[k]==='asc'?'desc':'asc';
+      sortState[k]=d;
+      events.sort((a,b)=>a[k]<b[k]?(d==='asc'?-1:1):a[k]>b[k]?(d==='asc'?1:-1):0);
+      render(events,closest);
       applySearch();
     };
   });
@@ -252,48 +266,46 @@ function render(events,fs,closest){
 
 function applySearch(){
   const q=document.getElementById('searchInput').value.toLowerCase();
-  document.querySelectorAll('#eventsPane tbody tr').forEach(r=>{
+  document.querySelectorAll('tbody tr').forEach(r=>{
     r.style.display=r.innerText.toLowerCase().includes(q)?'':'none';
   });
 }
-document.getElementById('searchInput').addEventListener('input',applySearch);
+document.getElementById('searchInput').oninput=applySearch;
 
 document.getElementById('analyzeBtn').onclick=()=>{
-  const raw=document.getElementById('logs').value.trim();
+  const logs=document.getElementById('logs').value.trim();
   const fs=parseTimestampWithTZ(document.getElementById('fsTime').value.trim());
-  if(!raw||!fs) return alert('Missing logs or invalid Force Serve time');
+  if(!logs||!fs) return alert('Missing input');
 
-  const events=parseLogs(raw);
-  const {closest,gap}=analyzeBeforeForceServe(events,fs);
-  render(events,fs,closest);
+  const events=parseLogs(logs);
+  const {closest,gap}=analyze(events,fs);
+  render(events,closest);
 
   document.getElementById('summary').innerHTML=`
-    <strong>Total events:</strong> ${events.length}<br><br>
-    <strong>Closest bet BEFORE Force Serve:</strong>
-    ${closest?.timeRaw||'N/A'}<br><br>
-    <strong>Time gap:</strong> ${Math.floor(gap/1000)}s before Force Serve<br>
-    <strong>Provider:</strong> ${closest?.provider||'-'} |
-    <strong>Game:</strong> ${closest?.game||'-'} |
-    <strong>Bet:</strong> ${closest?.bet||0} |
-    <strong>Win/Loss:</strong> ${closest?.win||0}
+    Parsed <b>${events.length}</b> events<br>
+    Closest bet: <b>${closest?.timeRaw||'N/A'}</b>
+    (${Math.floor(gap/1000)}s before)
     <br><br>
     <button id="copyClosest">Copy</button>
   `;
+
   document.getElementById('copyClosest').onclick=()=>{
     navigator.clipboard.writeText(closest.raw);
+    toast();
   };
-  window.__lastExport=events;
+
+  window.__last=events;
 };
 
 document.getElementById('exportCsv').onclick=()=>{
-  const r=window.__lastExport||[];
-  if(!r.length) return alert('No data to export');
+  if(!window.__last) return;
   const csv=['Time,Provider,Category,Game,Bet,Win/Loss']
-    .concat(r.map(e=>`"${e.timeRaw}","${e.provider}","${e.category}","${e.game}",${e.bet},${e.win}`))
+    .concat(window.__last.map(e=>`"${e.timeRaw}","${e.provider}","${e.category}","${e.game}",${e.bet},${e.win}`))
     .join('\n');
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='fs_analysis.csv'; a.click();
+  a.href=URL.createObjectURL(new Blob([csv]));
+  a.download='fs_analysis.csv';
+  a.click();
 };
 </script>
 </body>
