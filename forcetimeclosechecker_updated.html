@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Force Serve Forensics — Log Analyzer</title>
+
+<style>
+:root {
+  --bg: #0b0b12;
+  --card: #0f1724;
+  --muted: #9aa4b2;
+  --accent: #3be8c9;
+  --danger: #ff6b6b;
+  --glass: rgba(255,255,255,0.03);
+  --closest-bg: rgba(59, 232, 201, 0.5);
+}
+
+body {
+  background: var(--bg);
+  color: #e6eef6;
+  font-family: Poppins,sans-serif;
+  margin: 0;
+  padding: 24px;
+}
+
+.wrap { max-width: 1000px; margin: auto; }
+
+h1 { margin: 0 0 6px; font-size: 26px; }
+
+p.lead { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+
+.card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.5);
+}
+
+textarea, input {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: var(--glass);
+  color: #e6eef6;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 14px;
+  outline: none;
+}
+
+textarea { height: 280px; }
+
+button {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #032326;
+  transition: 0.2s;
+}
+button:hover { opacity: 0.85; }
+
+button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255,255,255,.2);
+}
+
+.small { font-size: 12px; color: var(--muted); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+thead th {
+  padding: 10px 8px;
+  border-bottom: 2px solid rgba(255,255,255,.2);
+  color: var(--muted);
+  text-align: left;
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+  cursor: pointer;
+}
+
+td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+
+tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+tr.closest {
+  background: var(--closest-bg) !important;
+  font-weight: 600;
+  font-size: 14px;
+  color: #032326;
+}
+
+tr:hover { background: rgba(59,232,201,0.15); cursor: pointer; }
+
+td.loss { color: var(--danger); font-weight: 500; }
+td.win { color: var(--accent); font-weight: 500; }
+
+#searchInput {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: none;
+  background: var(--glass);
+  color: #e6eef6;
+  font-size: 14px;
+  outline: none;
+}
+
+footer { font-size: 12px; color: var(--muted); margin-top: 16px; }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<h1>Force Serve Forensics — Log Analyzer</h1>
+<p class="lead">Cyan = closest bet • Red = loss • Green = win. Hover a row to see raw log, click row to copy it.</p>
+
+<div class="card">
+<label>Paste raw logs</label>
+<textarea id="logs" placeholder="Paste sportsbook or casino logs here"></textarea>
+
+<label style="margin-top:10px">Force Serve time</label>
+<input id="fsTime" placeholder="2026/01/10 17:26:30 (GMT+06:00)">
+
+<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+  <button id="analyzeBtn">Analyze</button>
+  <button id="exportCsv" class="secondary">Export CSV</button>
+</div>
+
+<div id="summary" class="small" style="margin-top:8px; padding:12px; background:rgba(59,232,201,0.1); border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.3);"></div>
+</div>
+
+<div class="card">
+<h3 class="small">Events</h3>
+<input id="searchInput" placeholder="Search table...">
+<div id="eventsPane" style="max-height:420px;overflow:auto"></div>
+</div>
+
+<footer>Always confirm conclusions with DB logs</footer>
+</div>
+
+<script>
+/* =======================
+   TIME & TIMEZONE
+======================= */
+function parseTimestampWithTZ(text){
+  const re = /(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})\s+(\d{1,2}:\d{2}:\d{2})(?:\s*\(GMT([+-]\d{2}):?(\d{2})\))?/;
+  const m = text.match(re);
+  if(!m) return null;
+  const date = m[1].replace(/\//g,'-');
+  const time = m[2];
+  const tzH = m[3] ?? '+00';
+  const tzM = m[4] ?? '00';
+  return { raw: `${m[1]} ${m[2]} (GMT${tzH}:${tzM})`, utc: new Date(`${date}T${time}${tzH}:${tzM}`) };
+}
+
+/* =======================
+   PARSE LOG LINE
+======================= */
+function parseLine(line){
+  const parts = line.split(/\t|\s{2,}/).filter(Boolean);
+  if(parts.length < 5) return null;
+
+  let ts = parseTimestampWithTZ(parts[0]);
+  if(!ts) for(let i=1;i<3;i++){ ts=parseTimestampWithTZ(parts[i]); if(ts) break; }
+  if(!ts) return null;
+
+  let provider = parts.find((p,i)=>i>2 && isNaN(parseFloat(p)) && !p.includes('(')) ?? 'Unknown';
+  provider = provider.trim();
+  let providerIndex = parts.indexOf(provider);
+  let category = parts[providerIndex+1] ?? 'Unknown';
+  let game = parts[providerIndex+2] ?? 'Unknown';
+
+  let bet=0, win=0, isLoss=false, turnover=0;
+  for(let i=providerIndex+3;i<parts.length;i++){
+    let p = parts[i].replace(/,/g,'').trim();
+    if(p==='') continue;
+    if(/^\(.*\)$/.test(p)){ win=-parseFloat(p.replace(/[()]/g,'')); isLoss=true; }
+    else if(!bet){ bet=parseFloat(p); }
+    else if(!win){ win=parseFloat(p); }
+    else{ turnover=parseFloat(p); }
+  }
+
+  return {timeRaw: ts.raw, utc: ts.utc, provider, category, game, bet, win, isLoss, turnover, raw: line};
+}
+
+/* =======================
+   PARSE LOGS
+======================= */
+function parseLogs(raw){
+  return raw.split('\n').map(l=>l.trim()).filter(Boolean).map(parseLine).filter(Boolean)
+             .sort((a,b)=>a.utc-b.utc);
+}
+
+/* =======================
+   ANALYZE
+======================= */
+function analyze(events, fs){
+  let closest=null, min=Infinity;
+  for(const e of events){ const d=Math.abs(e.utc-fs.utc); if(d<min){min=d; closest=e;} }
+  return {closest};
+}
+
+/* =======================
+   RENDER TABLE
+======================= */
+let sortState = {}; // tracks asc/desc per column
+
+function render(events, fs, closest){
+  const pane=document.getElementById('eventsPane');
+  const table=document.createElement('table');
+  table.innerHTML=`<thead>
+    <tr>
+      <th data-col="timeRaw">Time</th>
+      <th data-col="provider">Provider</th>
+      <th data-col="category">Category</th>
+      <th data-col="game">Game</th>
+      <th data-col="bet">Bet</th>
+      <th data-col="win">Win/Loss</th>
+    </tr>
+  </thead>`;
+  const tbody=document.createElement('tbody');
+
+  for(const e of events){
+    const tr=document.createElement('tr');
+    tr.title = e.raw;
+    if(e===closest) tr.classList.add('closest');
+    tr.innerHTML=`<td>${e.timeRaw}</td>
+                  <td>${e.provider}</td>
+                  <td>${e.category}</td>
+                  <td>${e.game}</td>
+                  <td class="${e.win<0?'loss':'win'}">${e.bet}</td>
+                  <td class="${e.win<0?'loss':'win'}">${e.win}</td>`;
+    // Make row copyable
+    tr.onclick = ()=>{ 
+      navigator.clipboard.writeText(e.raw).then(()=>alert('Log row copied!')); 
+    };
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  pane.innerHTML=''; pane.appendChild(table);
+
+  // Add sorting
+  table.querySelectorAll('thead th').forEach(th=>{
+    th.onclick = ()=>{
+      const col = th.dataset.col;
+      const dir = sortState[col]==='asc'?'desc':'asc';
+      sortState[col] = dir;
+      events.sort((a,b)=>{
+        if(a[col]<b[col]) return dir==='asc'? -1:1;
+        if(a[col]>b[col]) return dir==='asc'? 1:-1;
+        return 0;
+      });
+      render(events, fs, closest);
+      applySearch(); // preserve search filter
+    };
+  });
+}
+
+/* =======================
+   SEARCH FILTER
+======================= */
+function applySearch(){
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  const table = document.querySelector('#eventsPane table');
+  if(!table) return;
+  const rows = table.querySelectorAll('tbody tr');
+  rows.forEach(r=>{
+    const text = r.innerText.toLowerCase();
+    r.style.display = text.includes(query)?'':'none';
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', applySearch);
+
+/* =======================
+   EVENTS
+======================= */
+document.getElementById('analyzeBtn').onclick = () => {
+  const raw = document.getElementById('logs').value.trim();
+  const fsInput = document.getElementById('fsTime').value.trim();
+  const fs = parseTimestampWithTZ(fsInput);
+  if (!raw || !fs) return alert('Missing logs or invalid Force Serve time');
+
+  const events = parseLogs(raw);
+  const { closest } = analyze(events, fs);
+  render(events, fs, closest);
+
+  // Aggregate summary info
+  let totalBet = 0, totalWin = 0, totalLoss = 0;
+  for (const e of events) {
+    totalBet += e.bet;
+    if (e.win >= 0) totalWin += e.win;
+    else totalLoss += -e.win;
+  }
+
+  const highRiskThreshold = 500;
+  const highRiskCount = events.filter(e => e.bet >= highRiskThreshold).length;
+
+  const summaryHTML = `
+    <div style="margin-bottom:8px;">
+      <strong>Total events:</strong> ${events.length}<br>
+      <strong>Total bet amount:</strong> <span style="color:#fff;">${totalBet.toFixed(2)}</span><br>
+      <strong>Total wins:</strong> <span style="color:var(--accent);">${totalWin.toFixed(2)}</span><br>
+      <strong>Total losses:</strong> <span style="color:var(--danger);">${totalLoss.toFixed(2)}</span><br>
+    </div>
+    <div style="margin-top:8px; padding:8px; background:var(--card); border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.4);">
+      <strong>Closest bet:</strong> ${closest?.timeRaw || 'N/A'}<br>
+      <strong>Provider:</strong> ${closest?.provider || '-'} |
+      <strong>Category:</strong> ${closest?.category || '-'} |
+      <strong>Game:</strong> ${closest?.game || '-'}<br>
+      <strong>Bet:</strong> ${closest?.bet || 0} |
+      <strong>Win/Loss:</strong> ${closest?.win || 0} 
+      <button id="copyClosest" style="
+        margin-left:10px;
+        padding:2px 6px;
+        border:none;
+        border-radius:4px;
+        background:var(--accent);
+        color:#032326;
+        cursor:pointer;
+        font-size:12px;
+      ">Copy</button>
+    </div>
+  `;
+  document.getElementById('summary').innerHTML = summaryHTML;
+
+  // Copy Closest bet
+  document.getElementById('copyClosest').onclick = () => {
+    const textToCopy = `Closest bet: ${closest?.timeRaw || 'N/A'} | Provider: ${closest?.provider || '-'} | Category: ${closest?.category || '-'} | Game: ${closest?.game || '-'} | Bet: ${closest?.bet || 0} | Win/Loss: ${closest?.win || 0}`;
+    navigator.clipboard.writeText(textToCopy).then(()=>{ alert('Closest bet copied to clipboard!'); });
+  };
+
+  window.__lastExport = events;
+};
+
+document.getElementById('exportCsv').onclick=()=>{
+  const r=window.__lastExport||[];
+  if(!r.length) return alert('No data to export');
+
+  const csv=['Time,Provider,Category,Game,Bet,Win/Loss']
+    .concat(r.map(e=>`"${e.timeRaw}","${e.provider}","${e.category}","${e.game}",${e.bet},${e.win}`))
+    .join('\n');
+
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='fs_analysis.csv'; a.click();
+};
+</script>
+</body>
+</html>
