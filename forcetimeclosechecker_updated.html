@@ -269,8 +269,8 @@ document.getElementById('analyzeBtn').onclick=()=>{
 
   document.getElementById('summary').innerHTML=`
     <strong>Total events:</strong> ${events.length}<br><br>
-    <strong>Closest bet BEFORE Force Serve:</strong><br>
-    ${closest?.timeRaw||'N/A'}<br>
+    <strong>Closest bet BEFORE Force Serve:</strong>
+    ${closest?.timeRaw||'N/A'}<br><br>
     <strong>Time gap:</strong> ${Math.floor(gap/1000)}s before Force Serve<br>
     <strong>Provider:</strong> ${closest?.provider||'-'} |
     <strong>Game:</strong> ${closest?.game||'-'} |
