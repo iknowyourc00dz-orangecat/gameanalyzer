@@ -83,6 +83,9 @@ thead th {
   text-align: left;
   background: var(--card);
   cursor: pointer;
+  position: sticky;  /* STICKY HEADER */
+  top: 0;
+  z-index: 5;
 }
 
 td {
@@ -246,11 +249,11 @@ function render(events, closest){
   pane.innerHTML='';
   pane.appendChild(table);
 
-  /* 🔥 AUTO-SCROLL TO CLOSEST BET */
+  /* AUTO-SCROLL TO CLOSEST BET */
   setTimeout(()=>{
-    const row=pane.querySelector('tr.closest');
-    if(row) row.scrollIntoView({ behavior:'smooth', block:'center' });
-  },150);
+  const row=pane.querySelector('tr.closest');
+  if(row) row.scrollIntoView({ behavior:'smooth', block:'center' });
+},150);
 
   table.querySelectorAll('th').forEach(th=>{
     th.onclick=()=>{
