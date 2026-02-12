@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sports Arb Detector</title>
+
+<style>
+:root{
+  --bg:#0b0b12;
+  --card:#0f1724;
+  --border:#1f2a3a;
+  --text:#e6eef6;
+  --muted:#9aa4b2;
+  --arb:#ff6b6b;
+  --safe:#3be8c9;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  padding:20px;
+  max-width:1300px;
+  margin:auto;
+}
+
+textarea{
+  width:100%;
+  height:260px;
+  background:var(--card);
+  color:var(--text);
+  border:1px solid var(--border);
+  padding:12px;
+  border-radius:8px;
+  font-size:12px;
+}
+
+button{
+  padding:10px 16px;
+  background:var(--safe);
+  border:none;
+  border-radius:8px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+button.secondary{
+  background:#202a3a;
+  color:var(--text);
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+  margin-top:18px;
+}
+
+.summary-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
+}
+
+.stat{
+  background:#0c1320;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:12px;
+}
+
+.stat b{font-size:20px}
+
+input[type="text"]{
+  width:100%;
+  padding:8px 10px;
+  background:#0c1320;
+  border:1px solid var(--border);
+  border-radius:6px;
+  color:var(--text);
+  font-size:12px;
+  margin-bottom:10px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+th,td{
+  border-bottom:1px solid var(--border);
+  padding:8px;
+  font-size:12px;
+}
+
+tr.arb-row{
+  background:rgba(255,107,107,0.08);
+}
+
+details{
+  margin-top:12px;
+}
+
+summary{
+  cursor:pointer;
+  font-weight:600;
+  padding:6px 0;
+}
+
+.arb{color:var(--arb);font-weight:700}
+.safe{color:var(--safe);font-weight:700}
+.muted{color:var(--muted)}
+</style>
+</head>
+
+<body>
+
+<h2>Sports Arbitrage Checker</h2>
+<p class="muted">Player > Report > Bet > View Icon > 🔍 Icon > copy "eventTypeName" to "profitLoss" details in BO & paste > Analyze Button</p>
+
+<textarea id="input" placeholder="Paste bets here..."></textarea>
+
+<div class="actions">
+  <button onclick="analyze()">Analyze</button>
+  <button class="secondary" onclick="exportCSV()">Export CSV</button>
+</div>
+
+<div id="summary" class="card"></div>
+<div id="markets" class="card"></div>
+
+<script>
+const FIELDS=[
+  "eventName","marketName","selectionName","matchType",
+  "matchStake","userId","competitionName"
+];
+
+let GLOBAL_BETS=[];
+
+/* ---------- PARSER ---------- */
+function parse(text){
+  if(!text.trim()) return [];
+  const blocks=text.trim().split(/\n\s*\n/);
+  const bets=[];
+  blocks.forEach(block=>{
+    const bet={};
+    block.split("\n").forEach(line=>{
+      const parts=line.split("\t");
+      if(parts.length<2) return;
+      const key=parts[0].trim();
+      const value=parts.slice(1).join("\t").trim();
+      if(FIELDS.includes(key)) bet[key]=value;
+    });
+    if(bet.userId&&bet.eventName&&bet.selectionName){
+      bet.matchStake=Number(bet.matchStake||0);
+      bets.push(bet);
+    }
+  });
+  return bets;
+}
+
+/* ---------- ARB LOGIC (UNCHANGED) ---------- */
+function detectArbStatus(bets){
+  const fancyTracker=new Map();
+  const matchTracker=new Map();
+  const typeTracker=new Map();
+
+  return bets.map(bet=>{
+    let arbStatus="SAFE";
+    let triggeredBy="";
+    const {userId,eventName,marketName,selectionName,matchType}=bet;
+    const isFancy=matchType==="Yes"||matchType==="No";
+
+    if(isFancy){
+      const k=`${userId}|${eventName}|${selectionName}`;
+      if(!fancyTracker.has(k)) fancyTracker.set(k,new Set([matchType]));
+      else if(!fancyTracker.get(k).has(matchType)){
+        arbStatus="ARB (Fancy)";
+        triggeredBy="Opposite Yes/No";
+      }
+      fancyTracker.get(k).add(matchType);
+    }else{
+      const mk=`${userId}|${eventName}|${marketName}`;
+      const sk=`${mk}|${selectionName}`;
+
+      if(!matchTracker.has(mk)) matchTracker.set(mk,new Set([selectionName]));
+      else if(!matchTracker.get(mk).has(selectionName)){
+        arbStatus="ARB (Match Odds)";
+        triggeredBy="Multiple selections";
+      }
+      matchTracker.get(mk).add(selectionName);
+
+      if(!typeTracker.has(sk)) typeTracker.set(sk,new Set([matchType]));
+      else if(!typeTracker.get(sk).has(matchType)){
+        arbStatus="ARB (Back/Lay)";
+        triggeredBy="Back/Lay conflict";
+      }
+      typeTracker.get(sk).add(matchType);
+    }
+    return {...bet,arbStatus,triggeredBy};
+  });
+}
+
+/* ---------- ANALYZE ---------- */
+function analyze(){
+  const raw=parse(input.value);
+  if(!raw.length){
+    summary.innerHTML="<p class='muted'>No valid bets detected</p>";
+    markets.innerHTML="";
+    return;
+  }
+
+  GLOBAL_BETS=detectArbStatus(raw);
+  const arbCount=GLOBAL_BETS.filter(b=>b.arbStatus.startsWith("ARB")).length;
+
+  summary.innerHTML=`
+    <div class="summary-grid">
+      <div class="stat">Total Bets<br><b>${GLOBAL_BETS.length}</b></div>
+      <div class="stat arb">ARB Bets<br><b>${arbCount}</b></div>
+      <div class="stat safe">SAFE Bets<br><b>${GLOBAL_BETS.length-arbCount}</b></div>
+    </div>
+  `;
+
+  renderMarkets(GLOBAL_BETS);
+}
+
+/* ---------- MARKET COLLAPSIBLE ---------- */
+function renderMarkets(bets){
+  const groups={};
+
+  bets.forEach(b=>{
+    const key=`${b.eventName}|||${b.marketName}`;
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(b);
+  });
+
+  markets.innerHTML=`
+    <h3>Sports Bet Breakdown</h3>
+    <input type="text" placeholder="Search…" oninput="filterMarkets(this.value)">
+    ${Object.entries(groups).map(([k,items])=>{
+      const [event,market]=k.split("|||");
+      const hasArb=items.some(i=>i.arbStatus.startsWith("ARB"));
+      return `
+        <details open>
+          <summary>
+            ${event} — ${market}
+            <span class="${hasArb?'arb':'safe'}" style="margin-left:10px">
+              ${hasArb?'ARB':'SAFE'}
+            </span>
+            <span class="muted">(${items.length} bets)</span>
+          </summary>
+          <table>
+            <thead>
+              <tr>
+                <th>User</th><th>Selection</th><th>Type</th>
+                <th>Stake</th><th>Status</th><th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(b=>`
+                <tr class="${b.arbStatus.startsWith("ARB")?'arb-row':''}">
+                  <td>${b.userId}</td>
+                  <td>${b.selectionName}</td>
+                  <td>${b.matchType}</td>
+                  <td>${b.matchStake}</td>
+                  <td class="${b.arbStatus.startsWith("ARB")?'arb':'safe'}">${b.arbStatus}</td>
+                  <td class="muted">${b.triggeredBy}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </details>
+      `;
+    }).join("")}
+  `;
+}
+
+
+function filterMarkets(q){
+  q = q.toLowerCase().trim();
+
+  document.querySelectorAll("details").forEach(details => {
+    const rows = details.querySelectorAll("tbody tr");
+    let visibleRowCount = 0;
+
+    rows.forEach(row => {
+      const rowText = row.textContent.toLowerCase();
+      const match = rowText.includes(q);
+
+      row.style.display = match || q === "" ? "" : "none";
+      if(match || q === "") visibleRowCount++;
+    });
+
+    if(visibleRowCount > 0){
+      details.style.display = "";
+      details.open = true;   // auto expand
+    } else {
+      details.style.display = "none";
+      details.open = false;
+    }
+  });
+}
+
+
+
+/* ---------- EXPORT ---------- */
+function exportCSV(){
+  if(!GLOBAL_BETS.length) return;
+  let csv="User,Event,Market,Selection,Type,Stake,Status,Reason\n";
+  GLOBAL_BETS.forEach(b=>{
+    csv+=`${b.userId},${b.eventName},${b.marketName},${b.selectionName},${b.matchType},${b.matchStake},${b.arbStatus},${b.triggeredBy}\n`;
+  });
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="arb_export.csv";
+  a.click();
+}
+</script>
+
+</body>
+</html>
