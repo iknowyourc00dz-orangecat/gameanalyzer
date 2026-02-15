@@ -207,39 +207,28 @@ function parseLogs(raw){
 
 function analyze(events, fs) {
   let closest = null;
-  let bestCreateGap = Infinity;
   let bestTxnGap = Infinity;
   let fullTie = false;
 
   for (const e of events) {
-    if (e.utc >= fs.utc) continue;
+    // Only consider bets BEFORE Force Serve
+    if (!e.transaction?.utc || e.transaction.utc >= fs.utc) continue;
 
-    const createGap = fs.utc - e.utc;
-    const txnGap = e.transaction?.utc
-      ? fs.utc - e.transaction.utc
-      : Infinity;
+    const txnGap = fs.utc - e.transaction.utc;
 
-    if (
-      createGap < bestCreateGap ||
-      (createGap === bestCreateGap && txnGap < bestTxnGap)
-    ) {
-      bestCreateGap = createGap;
+    if (txnGap < bestTxnGap) {
       bestTxnGap = txnGap;
       closest = e;
       fullTie = false;
     }
-    else if (
-      createGap === bestCreateGap &&
-      txnGap === bestTxnGap
-    ) {
-      // another event is perfectly identical in timing
+    else if (txnGap === bestTxnGap) {
+      // identical transaction timestamp
       fullTie = true;
     }
   }
 
   return {
     closest,
-    createGap: bestCreateGap,
     transactionGap: bestTxnGap,
     fullTie
   };
@@ -365,24 +354,22 @@ document.getElementById('analyzeBtn').onclick=()=>{
   if(!logs||!fs) return alert('Paste logs and Force Serve time first');
 
   const events=parseLogs(logs);
-  const { closest, createGap, transactionGap, fullTie } = analyze(events, fs);
+  const { closest, transactionGap, fullTie } = analyze(events, fs);
+
 
   render(events,closest);
 
 document.getElementById('summary').innerHTML = `
   Parsed <b>${events.length}</b> events<br>
-  Closest Create Time: <b>${closest?.createRaw || 'N/A'}</b><br>
-  Closest Transaction Time: <b>${closest?.transaction?.raw || 'N/A'}</b><br><br>
-
-  Gap from <b>Create Time</b>: 
-  <b>${Math.floor(createGap / 1000)} seconds</b> before Force Serve<br>
+  Closest Transaction Time: <b>${closest?.transaction?.raw || 'N/A'}</b><br>
+  Create Time of Closest Bet: <b>${closest?.createRaw || 'N/A'}</b><br><br>
 
   Gap from <b>Transaction Time</b>: 
-  <b>${transactionGap !== null ? Math.floor(transactionGap / 1000) + ' seconds' : 'N/A'}</b> before Force Serve<br>
+  <b>${Math.floor(transactionGap / 1000)} seconds</b> before Force Serve<br>
 
   ${fullTie ? `
     <div style="margin-top:8px;color:#ffcc66;font-weight:600">
-      Multiple identical events detected.  
+      Multiple bets share identical Transaction Time.
       Highlighted row is deterministic but equivalent.
     </div>
   ` : ''}
