@@ -47,7 +47,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
   <optgroup label="⚡ Evolution">
     <option value="roulette">Roulette</option>
     <option value="sicbo">Sic Bo</option>
-    <!--  <option value="lightningsicbo">Lightning Sic Bo (not working) </option> -->
+    <!--  <option value="lightningsicbo">Lightning Sic Bo (not working) </option> i quit on this lol-->
     <option value="fantan">Fan Tan</option>
     <option value="monopoly">Monopoly Big Baller</option>
 	<option value="monopolylive">Monopoly LIVE</option>
@@ -75,7 +75,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
 	  <option value="ft">Fan Tan (KM)</option>
   </optgroup>
 
-  <!-- Pragmatic Play -->
+  <!-- Pragmatic Playzzzzz -->
   <optgroup label="🎰 Pragmatic Play">
     <option value="megawheel">Casino Mega Wheel</option>
   </optgroup>
@@ -83,7 +83,7 @@ button:hover { background:linear-gradient(135deg,#00ccff,#00ffff); transform:sca
 </select>
 
 <style>
-/* Neon styled dropdown */
+/* Neon styled dropdown - from sir gio */
 .dropdown {
   width: 100%;
   padding: 12px 14px;
@@ -350,7 +350,7 @@ if (game === "roulette") {
     return numbers;
   }
 
-  // --- Helper: decode bet code into numbers ---
+  // --- turns bets into string/int or string to int ---
   function getCoveredNumbers(code) {
     if (code === "ROU_0" || code === "ROU_0Green") return [0];
     if (code === "ROU_0And1") return [0,1];
@@ -372,7 +372,7 @@ if (game === "roulette") {
       if ([3,6,9,12,15,18,21,24,27,30,33,36].includes(num)) return COLUMN["ROU_ColumnBet3"];
     }
 
-    // --- Low/High 18 bets (explicit lists) ---
+    // --- Low/High 18 bets  ---
     if (code === "ROU_Low18" || code === "ROU_118")
       return [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18];
     if (code === "ROU_High18" || code === "ROU_1936")
@@ -403,7 +403,7 @@ if (game === "roulette") {
     return [];
   }
 
-  // --- Calculate totals & coverage ---
+  // ---  totals & coverage calcu ---
   let totalStake = 0, totalPayout = 0;
   let coveredSet = new Set();
 
@@ -429,7 +429,7 @@ if (game === "roulette") {
   const net = (totalPayout - totalStake).toFixed(2);
   const status = coveredPercent >= 85 ? "ARB" : "Not ARB";
 
-  // --- Badge ---
+  // --- Badge - mam angela code as basis  ---
   badge.className = "status-badge " + (status === "ARB" ? "status-arb" : "status-notarb");
   badge.textContent = `${status} (${coveredPercent.toFixed(2)}%)`;
 
@@ -485,7 +485,7 @@ if (game === "roulette") {
 
 
 // sic bo
-// I FUCKING HATE THIIIIISSSSS!!!!!!!! i enslave clanker to do this shitttt
+// I FUCKING HATE THIIIIISSSSS!!!!!!!! i'm a jjk fan ofc i dont read
 if (game === "sicbo") {
   const boardOptions = new Set([
     "SicBo_Small","SicBo_Big","SicBo_Odd","SicBo_Even",
@@ -602,11 +602,11 @@ if (game === "sicbo") {
       return Array.from(outcomes);
     }
 
-   // ---------- Outcome Coverage ----------
+   // ---------- outcome Coverage ----------
 const allOutcomes = new Set();
 uniqueBets.forEach(betCode => {
   getSicBoCoveredDice(betCode).forEach(x => {
-    // Normalize format (no spaces, consistent commas)
+    // Normalize format (no spaces, consistent commas) - sir gio code
     allOutcomes.add(x.split(',').map(n => n.trim()).join(','));
   });
 });
@@ -617,7 +617,7 @@ const outcomeCoveragePercent = Math.min((coveredOutcomes / totalOutcomes) * 100,
 const isOutcomeArb = outcomeCoveragePercent >= 85;
 
 
-    // ---------- Render Tables ----------
+    // ----------  Tables ----------
     result.innerHTML = `
       <div class="section"><h3>🎲 Sic Bo Bets Table</h3>
         <table class="table">
@@ -708,7 +708,7 @@ if (game === "lightningdice") {
       ? JSON.parse(jsonText) 
       : (JSON.parse(jsonText).bets || []);
 
-    // ---------- Board Options ----------
+    // ---------- Board Options - so far ----------
     const boardOptions = new Set([
       "DICE_Low","DICE_High",
       "DICE_Total3","DICE_Total4","DICE_Total5","DICE_Total6","DICE_Total7","DICE_Total8","DICE_Total9",
@@ -721,18 +721,18 @@ if (game === "lightningdice") {
     const uniqueBets = [...new Set(betsUsed.map(b => b.code))];
     const unusedBets = [...boardOptions].filter(b => !uniqueBets.includes(b));
 
-    // ---------- Coverage ----------
+    // ---------- coverage ----------
     const coveredOutcomes = new Set();
     uniqueBets.forEach(code => getLightningCoveredDice(code).forEach(o => coveredOutcomes.add(o)));
     const coveragePercent = (coveredOutcomes.size / 216) * 100;
     const isArb = coveragePercent >= 85;
 
-    // ---------- Totals ----------
+    // ---------- totalzzz ----------
     const totalStake = betsUsed.reduce((s,b)=> s+Number(b.stake||0), 0);
     const totalPayout = betsUsed.reduce((s,b)=> s+Number(b.payout||0), 0);
     const net = (totalPayout - totalStake).toFixed(2);
 
-    // ---------- Bet Descriptions ----------
+    // ---------- Bet descrip.. ----------
     const betDescriptions = {
       DICE_Low: "Low (3–10)",
       DICE_High: "High (11–18)",
@@ -741,7 +741,7 @@ if (game === "lightningdice") {
     };
     for (let t=3;t<=18;t++) betDescriptions[`DICE_Total${t}`] = `Total ${t}`;
 
-    // ---------- CSS for Badges ----------
+    // ----------  Badges ----------
     const style = document.createElement('style');
     style.textContent = `
       .badge { padding: 2px 6px; border-radius: 4px; color: white; font-weight: bold; }
@@ -752,7 +752,7 @@ if (game === "lightningdice") {
     `;
     document.head.appendChild(style);
 
-    // ---------- Render Table ----------
+    // ---------- Table ----------
     result.innerHTML = `
       <div class="section"><h3>🎲 Lightning Dice Bets Table</h3>
         <table class="table">
@@ -803,11 +803,11 @@ if (game === "lightningdice") {
         <p class="muted">Coverage: ${coveragePercent.toFixed(2)}%</p></div>
     `;
 
-    // update ARB badge
+    // ARB badge
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveragePercent.toFixed(2)}%)`;
 
-    // toggle "show more" combos
+    // toggle "show more" combos - mam angela
     document.querySelectorAll('a.toggle').forEach(a=>{
       a.addEventListener('click',e=>{
         e.preventDefault();
@@ -861,7 +861,7 @@ if (game === "lightningsicbo") {
   try {
     const data = JSON.parse(jsonText);
 
-    // Separate normal bets and Lightning Fee bets
+    // Separate normal bets and Lightning Fee bets - whatever is the fee
     const normalBets = data.filter(b => !b.code.includes('_Fee'));
     const feeBets = data.filter(b => b.code.includes('_Fee'));
 
@@ -969,7 +969,7 @@ if (game === "lightningsicbo") {
       return [...new Set(outcomes)];
     }
 
-    // ---------- Render Lightning Sic Bo Tables ----------
+    // ---------- Lightning Sic Bo Tables ----------
     result.innerHTML = `
       <div class="section"><h3>⚡ Lightning Sic Bo Bets Table</h3>
         <table class="table">
@@ -1066,7 +1066,7 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
           else payout = 0; // default fallback
         }
 
-        // Map word-based numbers to digits
+        // from string bet to string numbers
         const numMap = {
           "two":"2","three":"3","four":"4","five":"5","six":"6",
           "seven":"7","eight":"8","nine":"9","ten":"10","eleven":"11"
@@ -1097,7 +1097,7 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
     const coveragePercent = (covered.length / POSSIBLE_NUMBERS.length) * 100;
     const isArb = coveragePercent >= 85;
 
-    // ---------- Render Result ----------
+    // ----------  Result ----------
     result.innerHTML = `
       <div class="section">
         <h3>🎲 7 Up 7 Down Bets Table</h3>
@@ -1157,7 +1157,7 @@ function sevenUPsevenDOWN(jsonText, result, badge) {
       </div>
     `;
 
-    // Badge display
+    // Badge 
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveragePercent.toFixed(2)}%)`;
 
@@ -1231,7 +1231,7 @@ function analyzeFanTanCoverage(jsonText, result, badge) {
 
     for (const code of betCodes) addOutcomesForBet(code);
 
-    // ---------- Coverage results ----------
+    // ----------  results ----------
     const covered = Array.from(coveredOutcomes).sort();
     const notCovered = allOutcomes.filter(o => !coveredOutcomes.has(o));
     const coveragePercent = (covered.length / allOutcomes.length) * 100;
@@ -1250,7 +1250,7 @@ function analyzeFanTanCoverage(jsonText, result, badge) {
     const totalPayout = betDetails.reduce((sum, b) => sum + b.payout, 0);
     const totalNet = (totalPayout - totalStake).toFixed(2);
 
-    // ---------- Render output ----------
+    // ---------- table output ----------
     result.innerHTML = `
       <div class="section"><h3>🎲 Fan Tan Bets Table</h3>
         <table class="table">
@@ -1383,7 +1383,7 @@ function NumberMatkaBet(jsonText, result, badge) {
     const coveragePercent = (totalCoveredNumbers.size / totalNumbers) * 100;
     const isArb = coveragePercent >= 85;
 
-    // ---------- Render Tables ----------
+    // ----------  Tables ----------
     result.innerHTML = `
       <div class="section"><h3>🎲 Number Matka Bets Table</h3>
         <table class="table">
@@ -1422,7 +1422,7 @@ function NumberMatkaBet(jsonText, result, badge) {
       </div>
     `;
 
-    // ---------- Update Badge ----------
+    // ----------  Badge ----------
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} (${coveragePercent.toFixed(2)}%)`;
 
@@ -1488,7 +1488,7 @@ function MonopolyBigBallerBet(jsonText, result, badge) {
     const isArb = coveragePercent >= 85;
     const net = (totalPayout - totalStake).toFixed(2);
 
-    // ---------- Render Tables ----------
+    // ---------- Tables ----------
     result.innerHTML = `
       <div class="section"><h3>🎲 Monopoly Big Baller Bets Table</h3>
         <table class="table">
@@ -1569,7 +1569,7 @@ function FunkyTimeCoverage(jsonText, result, badge) {
     const bonusBets = ["FNT_Bar", "FNT_StayinAlive", "FNT_Disco", "FNT_VipDisco"];
     const validBets = [...mainBets, ...bonusBets];
 
-    // ---------- Normalization Map ----------
+    // ---------- possible bets in BO so far ----------
     const normalizationMap = {
       "FNT_BAR": "FNT_Bar",
       "FNT_STAYINALIVE": "FNT_StayinAlive",
@@ -1635,7 +1635,7 @@ function FunkyTimeCoverage(jsonText, result, badge) {
       arbReason += "• High main-segment coverage (≥85%)\n";
     }
 
-    // ---------- 2. Identical Stake Arbitrage ----------
+    // ---------- 2. Identical Stake Arbitrage - mam angela basis ----------
     let identicalStake = false;
     if (coveredMain.length >= 3) {
       const stakesArr = coveredMain.map(code => stakes[code]);
@@ -1664,7 +1664,7 @@ function FunkyTimeCoverage(jsonText, result, badge) {
     // ============================================================
 
 
-    // ---------- Bets Table ----------
+    // ----------  Table ----------
     const betsTable = `
       <div class="section">
         <h3>🕹️ Funky Time Bets Table</h3>
@@ -1824,7 +1824,7 @@ function CrazyTimeCoverage(jsonText, result, badge) {
 
     const net = (totalPayout - totalStake).toFixed(2);
 
-    // ---------- Crazy Time Bets Table ----------
+    // ---------- Crazy Time Table ----------
     const betsTable = `
       <div class="section">
         <h3>🌀 Crazy Time Bets Table</h3>
@@ -2131,7 +2131,7 @@ function LightningStormBets(jsonText, result, badge) {
       </div>
     `;
 
-    // ---------- Uncovered Main Table ----------
+    // ---------- Uncovered Table ----------
     const uncoveredTable = `
       <div class="ls-section">
         <h3>🚫 Uncovered Positions (Numbers 1–20: ${uncoveredMain.length})</h3>
@@ -2248,7 +2248,7 @@ function checkMegaWheelArb(jsonText, result, badge) {
     const coveragePercent = (covered.length / TOTAL) * 100;
     const isArb = coveragePercent >= 85;
 
-    // ---------- Render Tables ----------
+    // ---------- Mega Wheel Tables ----------
     result.innerHTML = `
       <div class="section"><h3>🎡 Mega Wheel Bets Table</h3>
         <table class="table">
@@ -2297,7 +2297,7 @@ function checkMegaWheelArb(jsonText, result, badge) {
       </div>
     `;
 
-    // Status Badge
+    //  Badge
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${isArb ? "ARB ✅" : "NOT ARB ❌"} | ${coveragePercent.toFixed(2)}%`;
 
@@ -2320,7 +2320,7 @@ if (game === "megawheel") {
 
 
 
-// ---------- RACE TRACK BETS the horses na cnasabi ni sir noon----------
+// ---------- RACE TRACK BETS the horses na cnasabi ni sir noon ----------
 // all 6 possible outcome are wagered its arb daw
 function RaceTrackBets(jsonString, result, badge) {
   try {
@@ -2423,7 +2423,7 @@ if (game === "racetrack") {
 
 // ---------- ICE FISHING BETS evo----------
 // same logic as horse track
-// all 6 possible outcomes wagered == ARB
+// all 6 possible outcomes wagered == ARB (i think)
 function IceFishingBetsEVO(jsonString, result, badge) {
   try {
     const data = JSON.parse(jsonString);
@@ -2979,18 +2979,18 @@ if (game === "crazyballs") {
     return; 
   }
 
-  // --- Define all possible game cards ---
+  // ---  all possible game cards ---
   const BASE_CARDS = ["SB_FreeSpaceCard1","SB_FreeSpaceCard2","SB_MultiCard3","SB_MultiCard4"];
   const BONUS_CARDS = ["SB_CCFBonus","SB_HuntBonus","SB_PachinkoBonus","SB_CrazyTimeBonus"];
   const ALL_CARDS = [...BASE_CARDS, ...BONUS_CARDS];
 
-  const CARD_COVERAGE = 20, BONUS_COVERAGE = 10; // fixed units for calculation
+  const CARD_COVERAGE = 20, BONUS_COVERAGE = 10; // fixed for now
 
   let totalStake = 0, totalPayout = 0;
   const coveredBets = [];
   const placedCodes = new Set();
 
-  // --- Analyze placed bets ---
+  // ---  placed bets ---
   bets.forEach(b => {
     totalStake += Number(b.stake) || 0;
     totalPayout += Number(b.payout) || 0;
@@ -3001,7 +3001,7 @@ if (game === "crazyballs") {
     } else if (BONUS_CARDS.includes(b.code)) {
       coveredBets.push({...b, group:"Bonus", covered:BONUS_COVERAGE});
     } else {
-      // Other unrecognized bets (optional)
+      // Other unrecognized bets (optional) - learning still
       coveredBets.push({...b, group:"Other", covered:0});
     }
   });
@@ -3206,7 +3206,7 @@ function kingmakerCoinToss(jsonText, result, badge) {
       </div>
     `;
 
-    // Badge shows coverage % + ARB
+    // Badge shows coverage % + arb
     badge.className = "status-badge " + (isArb ? "status-arb" : "status-notarb");
     badge.textContent = `${coveragePercent.toFixed(2)}% Coverage ${isArb ? "✅ ARB" : "❌ Not ARB"}`;
 
@@ -3256,7 +3256,7 @@ function ftBetAnalyzer(jsonText, result, badge) {
         const betName = match[1].toLowerCase();
         const stake = parseFloat(match[2]) || 0;
 
-        // ---------- FIXED PAYOUT LOGIC ----------
+        // ----------  PAYOUT LOGIC (fixed) ----------
         let payout = stake;
         const profit = parseFloat(item.profit) || 0;
         const gameResult = (item.gameResult || "").toLowerCase();
@@ -3271,7 +3271,7 @@ function ftBetAnalyzer(jsonText, result, badge) {
         totalStake += stake;
         totalPayout += payout;
 
-        // Extract numbers for coverage
+        // get numbers for coverage
         const nums = betName.match(/\d+/g) || [];
         nums.forEach(n => numbersCoveredSet.add(n));
       }
@@ -3289,7 +3289,7 @@ function ftBetAnalyzer(jsonText, result, badge) {
       betNumbersMap[bet] = nums ? nums.join(",") : "";
     });
 
-    // ---------- Render Result ----------
+    // ----------  Result table ----------
     result.innerHTML = `
       <div class="section">
         <h3>🎲 FT Bets Table</h3>
@@ -3411,7 +3411,7 @@ if (game === "dtp") {
     // Determine coverage pattern
     const coveragePattern = uniqueBets.join(" + ") || "No bets";
 
-    // ---------- Render Table ----------
+    // ----------  Table ----------
     result.innerHTML = `
       <div class="section"><h3>🐉 Dragon Tiger Phoenix Bets Table</h3>
         <table class="table">
@@ -3446,7 +3446,7 @@ if (game === "dtp") {
       </div>
     `;
 
-    // ---------- Badge Status ----------
+    // ---------- Badge  ----------
     if (isArb) {
       badge.className = "status-badge status-arb";
       badge.textContent = `ARB ✅ (All 3 sides covered, ${coveragePercent.toFixed(2)}%)`;
@@ -3476,14 +3476,14 @@ function kingmakerCardMatka(jsonText, result, badge) {
     const betString = data.betType || "";
     const parts = betString.split(",").map(s => s.trim());
 
-    // ---------- All 12 Card Outcomes ----------
+    // ---------- All 12 Card Outcomes in BO thanks to chatgtp for the input ----------
     const allOutcomes = [
       "J♦","J♣","J♥","J♠",
       "Q♦","Q♣","Q♥","Q♠",
       "K♦","K♣","K♥","K♠"
     ];
 
-    // ---------- COLOR CODING ----------
+    // ---------- colour codings ----------
     const colorCard = (c) => {
       if (c.includes("J")) return `<span style="color:#6cf;font-weight:bold">${c}</span>`;
       if (c.includes("Q")) return `<span style="color:#ff7dff;font-weight:bold">${c}</span>`;
@@ -3491,7 +3491,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
       return c;
     };
 
-    // ---------- Maps ----------
+    // ---------- map stuff ----------
     const EXACT_MAP = {
       "pr-jack-diamonds": "J♦",
       "pr-jack-clubs": "J♣",
@@ -3606,7 +3606,7 @@ function kingmakerCardMatka(jsonText, result, badge) {
         </tbody>
       </table>`;
 
-    // ---------- FINAL HTML ----------
+    // ---------- FINAL  ----------
     result.innerHTML = `
       <div class="section">
         <h2>🃏 Kingmaker Card Matka</h2>
