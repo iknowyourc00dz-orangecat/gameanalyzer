@@ -537,18 +537,66 @@ if (game === "sicbo") {
       SicBo_Combo4And5: "Combo 4 & 5", SicBo_Combo4And6: "Combo 4 & 6", SicBo_Combo5And6: "Combo 5 & 6",
       SicBo_Triple: "Any Triple"
     };
-
+        // this sucks
     function getSicBoCoveredDice(betCode) {
       const outcomes = new Set();
       if (["SicBo_Small","SicBo_Big","SicBo_Odd","SicBo_Even"].includes(betCode)) {
-        for (let sum=4; sum<=17; sum++) {
-          if(betCode==="SicBo_Small" && sum>=4 && sum<=10) outcomes.add(sum.toString());
-          if(betCode==="SicBo_Big" && sum>=11 && sum<=17) outcomes.add(sum.toString());
-          if(betCode==="SicBo_Odd" && sum%2===1) outcomes.add(sum.toString());
-          if(betCode==="SicBo_Even" && sum%2===0) outcomes.add(sum.toString());
+
+  for (let d1=1; d1<=6; d1++) {
+    for (let d2=1; d2<=6; d2++) {
+      for (let d3=1; d3<=6; d3++) {
+
+        const dice = [d1,d2,d3];
+        const sum = d1+d2+d3;
+        const diceStr = dice.join(",");
+
+        const isTriple = (d1 === d2 && d2 === d3);
+
+        // SMALL
+        if (
+          betCode === "SicBo_Small" &&
+          sum >= 4 &&
+          sum <= 10 &&
+          !isTriple
+        ) {
+          outcomes.add(diceStr);
         }
-        return Array.from(outcomes);
+
+        // BIG
+        if (
+          betCode === "SicBo_Big" &&
+          sum >= 11 &&
+          sum <= 17 &&
+          !isTriple
+        ) {
+          outcomes.add(diceStr);
+        }
+
+        // ODD
+        if (
+          betCode === "SicBo_Odd" &&
+          sum % 2 === 1 &&
+          !isTriple
+        ) {
+          outcomes.add(diceStr);
+        }
+
+        // EVEN
+        if (
+          betCode === "SicBo_Even" &&
+          sum % 2 === 0 &&
+          !isTriple
+        ) {
+          outcomes.add(diceStr);
+        }
+
       }
+    }
+  }
+
+  return Array.from(outcomes);
+}
+      
       for (let d1=1; d1<=6; d1++) {
         for (let d2=1; d2<=6; d2++) {
           for (let d3=1; d3<=6; d3++) {
@@ -693,6 +741,10 @@ const isOutcomeArb = outcomeCoveragePercent >= 85;
     badge.textContent = "Error";
   }
 }
+
+
+
+	
 
 
 
