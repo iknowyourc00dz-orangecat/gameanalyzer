@@ -1,327 +1,1450 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Sports Arb Detector</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sports Risk Analyzer</title>
 
 <style>
 :root{
-  --bg:#0b0b12;
-  --card:#0f1724;
-  --border:#1f2a3a;
-  --text:#e6eef6;
-  --muted:#9aa4b2;
-  --arb:#ff6b6b;
-  --safe:#3be8c9;
+  --bg:#090b10;
+  --panel:#111722;
+  --border:#273244;
+  --text:#edf1f7;
+  --muted:#8995a7;
+  --gold:#e5bd69;
+  --red:#ff626f;
+  --orange:#ffb454;
+  --green:#45d6a0;
+  --blue:#70aaff;
 }
 
+*{box-sizing:border-box}
+
 body{
-  background:var(--bg);
+  margin:0 auto;
+  padding:26px;
+  background:
+    radial-gradient(ellipse at top right,#20202b 0%,transparent 45%),
+    var(--bg);
   color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto;
-  padding:20px;
-  max-width:1300px;
-  margin:auto;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+  max-width:1500px;
+}
+
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+  flex-wrap:wrap;
+  margin-bottom:24px;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:13px;
+}
+
+.logo{
+  width:46px;
+  height:46px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,#f0cd83,#9e7132);
+  color:#17120a;
+  font-size:22px;
+  font-weight:900;
+}
+
+h1{
+  font-size:23px;
+  margin:0;
+}
+
+.subtitle{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:5px;
+}
+
+.version{
+  color:var(--gold);
+  border:1px solid #665334;
+  background:#302719;
+  padding:7px 12px;
+  border-radius:20px;
+  font-size:11px;
+  font-weight:700;
+}
+
+.panel{
+  background:linear-gradient(145deg,#131b28,#101620);
+  border:1px solid var(--border);
+  border-radius:13px;
+  padding:19px;
+  margin-bottom:17px;
+  box-shadow:0 8px 25px #0002;
+}
+
+.section-title{
+  font-size:14px;
+  font-weight:750;
+  margin-bottom:13px;
+}
+
+.instructions{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.8;
+  margin-bottom:13px;
+}
+
+.import-area{width:100%}
+
+.import-heading{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.drop-zone{
+  border:1px dashed #59677d;
+  background:#0b111b;
+  border-radius:12px;
+  padding:25px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  text-align:center;
+  transition:.2s;
+}
+
+.drop-zone.dragover{
+  border-color:var(--gold);
+  background:#282216;
+}
+
+.drop-zone b{font-size:13px}
+
+#fileName{
+  color:var(--green);
+  font-size:11px;
+  overflow-wrap:anywhere;
 }
 
 textarea{
   width:100%;
-  height:260px;
-  background:var(--card);
-  color:var(--text);
-  border:1px solid var(--border);
-  padding:12px;
-  border-radius:8px;
+  min-height:260px;
+  resize:vertical;
+  background:#090e17;
+  color:#dce6f4;
+  border:1px solid #303c50;
+  border-radius:9px;
+  padding:14px;
+  font-family:Consolas,monospace;
   font-size:12px;
+  line-height:1.65;
+  outline:none;
+  margin-top:15px;
 }
 
-button{
-  padding:10px 16px;
-  background:var(--safe);
-  border:none;
-  border-radius:8px;
-  font-weight:600;
-  cursor:pointer;
+textarea:focus,input:focus,select:focus{
+  border-color:var(--gold);
 }
 
-button.secondary{
-  background:#202a3a;
-  color:var(--text);
-}
+textarea::placeholder{color:#596578}
 
 .actions{
   display:flex;
-  gap:10px;
-  margin-top:12px;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:13px;
 }
 
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:14px;
-  margin-top:18px;
+button{
+  padding:11px 17px;
+  border:1px solid transparent;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:750;
+  font-size:12px;
+  transition:.2s;
 }
 
-.summary-grid{
+button:hover{
+  filter:brightness(1.13);
+  transform:translateY(-1px);
+}
+
+.primary{
+  background:linear-gradient(135deg,#e8c77f,#b88c47);
+  color:#17120a;
+}
+
+.secondary{
+  background:#202b3a;
+  border-color:#344155;
+  color:var(--text);
+}
+
+.danger-btn{
+  background:#321e25;
+  border-color:#69323c;
+  color:#ff9ba3;
+}
+
+.stats{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
   gap:12px;
 }
 
 .stat{
-  background:#0c1320;
+  background:#0d131d;
   border:1px solid var(--border);
-  border-radius:8px;
-  padding:12px;
+  border-radius:10px;
+  padding:16px;
+  position:relative;
+  overflow:hidden;
 }
 
-.stat b{font-size:20px}
+.stat:after{
+  content:"";
+  position:absolute;
+  width:3px;
+  height:100%;
+  left:0;
+  top:0;
+  background:var(--accent,var(--gold));
+}
 
-input[type="text"]{
+.stat-label{
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:9px;
+}
+
+.stat-value{
+  font-size:25px;
+  font-weight:850;
+}
+
+.stat-note{
+  color:var(--muted);
+  font-size:10px;
+  margin-top:6px;
+}
+
+.red{color:var(--red)}
+.orange{color:var(--orange)}
+.green{color:var(--green)}
+.gold{color:var(--gold)}
+
+.notice{
+  background:#211d15;
+  border:1px solid #59472b;
+  color:#e9ca8a;
+  border-radius:9px;
+  padding:12px 14px;
+  font-size:11px;
+  line-height:1.7;
+  margin-top:14px;
+}
+
+.toolbar{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) 180px 180px;
+  gap:10px;
+  margin:14px 0;
+}
+
+input,select{
   width:100%;
-  padding:8px 10px;
-  background:#0c1320;
-  border:1px solid var(--border);
-  border-radius:6px;
+  background:#0b111b;
   color:var(--text);
+  border:1px solid #303c50;
+  border-radius:8px;
+  padding:10px;
+  outline:none;
   font-size:12px;
-  margin-bottom:10px;
+}
+
+.result-heading{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.count{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.group{
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin-top:11px;
+  overflow:hidden;
+  background:#0d131d;
+}
+
+.group summary{
+  cursor:pointer;
+  padding:14px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  list-style:none;
+}
+
+.group summary::-webkit-details-marker{display:none}
+
+.group summary:before{
+  content:"＋";
+  color:var(--gold);
+}
+
+.group[open] summary:before{content:"−"}
+
+.group-title{
+  font-size:12px;
+  font-weight:750;
+  flex:1;
+  min-width:180px;
+}
+
+.pill{
+  border-radius:20px;
+  padding:4px 9px;
+  font-size:10px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.pill.arb{
+  color:#ff8d96;
+  background:#3a2027;
+  border:1px solid #65323c;
+}
+
+.pill.review{
+  color:#ffc477;
+  background:#352919;
+  border:1px solid #6c512a;
+}
+
+.pill.safe{
+  color:#71e0b5;
+  background:#153329;
+  border:1px solid #275b48;
+}
+
+.pill.neutral{
+  color:#a6b5ca;
+  background:#202b3b;
+  border:1px solid #35465e;
+}
+
+.table-wrap{
+  overflow-x:auto;
+  padding:0 12px 12px;
 }
 
 table{
   width:100%;
+  min-width:750px;
   border-collapse:collapse;
-  margin-top:10px;
 }
 
-th,td{
-  border-bottom:1px solid var(--border);
-  padding:8px;
+th{
+  color:#9daabd;
+  font-size:10px;
+  text-align:left;
+  padding:11px 9px;
+  background:#141d2b;
+  white-space:nowrap;
+}
+
+td{
+  font-size:11px;
+  padding:11px 9px;
+  border-bottom:1px solid #202a39;
+}
+
+tr:last-child td{border-bottom:none}
+tr.review-row{background:#ffb45408}
+
+.reason{
+  color:var(--muted);
+  max-width:250px;
+}
+
+.empty{
+  color:var(--muted);
+  text-align:center;
+  padding:35px;
   font-size:12px;
 }
 
-tr.arb-row{
-  background:rgba(255,107,107,0.08);
+.hidden{display:none!important}
+
+footer{
+  color:#687487;
+  font-size:10px;
+  text-align:center;
+  padding:20px 0;
 }
 
-details{
-  margin-top:12px;
+@media(max-width:700px){
+  body{padding:13px}
+  .toolbar{grid-template-columns:1fr}
+  h1{font-size:19px}
 }
-
-summary{
-  cursor:pointer;
-  font-weight:600;
-  padding:6px 0;
-}
-
-.arb{color:var(--arb);font-weight:700}
-.safe{color:var(--safe);font-weight:700}
-.muted{color:var(--muted)}
 </style>
 </head>
 
 <body>
 
-<h2>Sports Arbitrage Checker</h2>
-<p class="muted">Player > Report > Bet > View Icon > 🔍 Icon > copy "eventTypeName" to "profitLoss" details in BO & paste > Analyze Button</p>
+<header>
+  <div class="brand">
+    <div class="logo">R</div>
+    <div>
+      <h1>Sports Risk Analyzer</h1>
+      <div class="subtitle">
+        Arbitrage Detection · Betting Pattern Analysis
+      </div>
+    </div>
+  </div>
+  <div class="version">Sports Bet Analysis</div>
+</header>
 
-<textarea id="input" placeholder="Paste bets here..."></textarea>
+<section class="panel">
+  <div class="section-title">01 / Betting Data Import</div>
 
-<div class="actions">
-  <button onclick="analyze()">Analyze</button>
-  <button class="secondary" onclick="exportCSV()">Export CSV</button>
-</div>
+  <div class="instructions">
+    Copy your betting information directly from BO.
+    Paste the JSON or upload the exported file.
+    No manual JSON formatting required.
+  </div>
 
-<div id="summary" class="card"></div>
-<div id="markets" class="card"></div>
+  <div class="import-area">
+
+    <div class="drop-zone" id="dropZone">
+      <div style="font-size:28px">📂</div>
+      <b>Drop your JSON file here</b>
+      <span class="instructions">
+        or select a file from your computer
+      </span>
+
+      <button class="secondary" type="button"
+        onclick="document.getElementById('jsonFile').click()">
+        Browse JSON File
+      </button>
+
+      <input type="file" id="jsonFile"
+        accept=".json,application/json"
+        hidden onchange="handleJSONFile(this.files[0])">
+    </div>
+
+    <div class="import-heading" style="margin-top:18px">
+      <b>Or paste your BO data</b>
+      <span id="fileName">No file selected</span>
+    </div>
+
+    <textarea id="input"
+      placeholder="Paste your BO JSON or tab-separated data here..."></textarea>
+
+    <div class="actions">
+      <button class="primary" onclick="analyze()">
+        ANALYZE DATA
+      </button>
+      <button class="secondary" onclick="exportCSV()">
+        EXPORT CSV
+      </button>
+      <button class="secondary" onclick="loadExample()">
+        LOAD SAMPLE
+      </button>
+      <button class="danger-btn" onclick="clearAll()">
+        CLEAR
+      </button>
+    </div>
+
+    <div id="parseMessage" class="instructions" style="margin-top:12px">
+      Awaiting betting data.
+    </div>
+  </div>
+</section>
+
+<section id="dashboard" class="panel hidden">
+  <div class="section-title">02 / Analysis Overview</div>
+
+  <div class="stats">
+
+    <div class="stat" style="--accent:var(--gold)">
+      <div class="stat-label">TOTAL BETS</div>
+      <div class="stat-value" id="totalBets">0</div>
+      <div class="stat-note">Valid records analyzed</div>
+    </div>
+
+    <div class="stat" style="--accent:var(--red)">
+      <div class="stat-label">ARB CONFIRMED</div>
+      <div class="stat-value red" id="arbBets">0</div>
+      <div class="stat-note">Mathematically verified</div>
+    </div>
+
+    <div class="stat" style="--accent:var(--orange)">
+      <div class="stat-label">REVIEW REQUIRED</div>
+      <div class="stat-value orange" id="reviewBets">0</div>
+      <div class="stat-note">Potential risk patterns</div>
+    </div>
+
+    <div class="stat" style="--accent:var(--green)">
+      <div class="stat-label">SAFE PATTERNS</div>
+      <div class="stat-value green" id="safeBets">0</div>
+      <div class="stat-note">No detected conflict</div>
+    </div>
+
+    <div class="stat" style="--accent:var(--blue)">
+      <div class="stat-label">UNIQUE PLAYERS</div>
+      <div class="stat-value" id="uniquePlayers">0</div>
+      <div class="stat-note">Players analyzed</div>
+    </div>
+
+    <div class="stat" style="--accent:var(--gold)">
+      <div class="stat-label">AFFECTED MARKETS</div>
+      <div class="stat-value" id="affectedMarkets">0</div>
+      <div class="stat-note">Groups requiring attention</div>
+    </div>
+
+  </div>
+
+  <div class="notice">
+    <b>Important:</b> Pattern detection does not establish
+    guaranteed-profit arbitrage. Odds, payout, liability,
+    settlement rules and timing must be verified.
+  </div>
+</section>
+
+<section id="results" class="panel hidden">
+
+  <div class="result-heading">
+    <div class="section-title" style="margin:0">
+      03 / Betting Pattern Breakdown
+    </div>
+    <div class="count" id="resultCount"></div>
+  </div>
+
+  <div class="toolbar">
+
+    <input id="search"
+      placeholder="Search player, event, market, selection..."
+      oninput="renderResults()">
+
+    <select id="statusFilter" onchange="renderResults()">
+      <option value="ALL">All classifications</option>
+      <option value="REVIEW">Review required</option>
+      <option value="SAFE">Safe patterns</option>
+    </select>
+
+    <select id="reasonFilter" onchange="renderResults()">
+      <option value="ALL">All detection reasons</option>
+      <option value="FANCY">Opposite Yes / No</option>
+      <option value="BACKLAY">Back / Lay conflict</option>
+      <option value="MULTI">Multiple selections</option>
+      <option value="NONE">No conflict detected</option>
+    </select>
+
+  </div>
+
+  <div id="marketList"></div>
+
+</section>
+
+<footer>
+  SPORTS RISK ANALYZER · Internal screening tool · Manual verification required
+</footer>
 
 <script>
-const FIELDS=[
-  "eventName","marketName","selectionName","matchType",
-  "matchStake","userId","competitionName"
+"use strict";
+
+/* =========================
+   GLOBAL VARIABLES
+========================= */
+
+const FIELDS = [
+  "eventName",
+  "marketName",
+  "selectionName",
+  "matchType",
+  "matchStake",
+  "userId",
+  "competitionName"
 ];
 
 let GLOBAL_BETS=[];
+let GLOBAL_GROUPS=[];
 
-/* ---------- PARSER ---------- */
-function parse(text){
-  if(!text.trim()) return [];
-  const blocks=text.trim().split(/\n\s*\n/);
-  const bets=[];
-  blocks.forEach(block=>{
-    const bet={};
-    block.split("\n").forEach(line=>{
-      const parts=line.split("\t");
-      if(parts.length<2) return;
-      const key=parts[0].trim();
-      const value=parts.slice(1).join("\t").trim();
-      if(FIELDS.includes(key)) bet[key]=value;
-    });
-    if(bet.userId&&bet.eventName&&bet.selectionName){
-      bet.matchStake=Number(bet.matchStake||0);
-      bets.push(bet);
-    }
-  });
-  return bets;
+/* =========================
+   UTILITIES
+========================= */
+
+function clean(value){
+  return String(value??"").trim();
 }
 
-/* ---------- ARB LOGIC (UNCHANGED) ---------- */
-function detectArbStatus(bets){
-  const fancyTracker=new Map();
-  const matchTracker=new Map();
-  const typeTracker=new Map();
-
-  return bets.map(bet=>{
-    let arbStatus="SAFE";
-    let triggeredBy="";
-    const {userId,eventName,marketName,selectionName,matchType}=bet;
-    const isFancy=matchType==="Yes"||matchType==="No";
-
-    if(isFancy){
-      const k=`${userId}|${eventName}|${selectionName}`;
-      if(!fancyTracker.has(k)) fancyTracker.set(k,new Set([matchType]));
-      else if(!fancyTracker.get(k).has(matchType)){
-        arbStatus="ARB (Fancy)";
-        triggeredBy="Opposite Yes/No";
-      }
-      fancyTracker.get(k).add(matchType);
-    }else{
-      const mk=`${userId}|${eventName}|${marketName}`;
-      const sk=`${mk}|${selectionName}`;
-
-      if(!matchTracker.has(mk)) matchTracker.set(mk,new Set([selectionName]));
-      else if(!matchTracker.get(mk).has(selectionName)){
-        arbStatus="ARB (Match Odds)";
-        triggeredBy="Multiple selections";
-      }
-      matchTracker.get(mk).add(selectionName);
-
-      if(!typeTracker.has(sk)) typeTracker.set(sk,new Set([matchType]));
-      else if(!typeTracker.get(sk).has(matchType)){
-        arbStatus="ARB (Back/Lay)";
-        triggeredBy="Back/Lay conflict";
-      }
-      typeTracker.get(sk).add(matchType);
-    }
-    return {...bet,arbStatus,triggeredBy};
-  });
+function normalize(value){
+  return clean(value).toLowerCase().replace(/\s+/g," ");
 }
 
-/* ---------- ANALYZE ---------- */
-function analyze(){
-  const raw=parse(input.value);
-  if(!raw.length){
-    summary.innerHTML="<p class='muted'>No valid bets detected</p>";
-    markets.innerHTML="";
+function escapeHTML(value){
+  return String(value??"").replace(/[&<>"']/g,c=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  })[c]);
+}
+
+function numberValue(value){
+
+  if(typeof value==="number"){
+    return Number.isFinite(value)?value:0;
+  }
+
+  const n=Number(
+    String(value??"").replace(/,/g,"").replace(/[^\d.-]/g,"")
+  );
+
+  return Number.isFinite(n)?n:0;
+}
+
+function normalizeType(value){
+
+  const v=normalize(value);
+
+  if(["back","buy","yes","for"].includes(v)) return "BACK";
+  if(["lay","sell","no","against"].includes(v)) return "LAY";
+
+  return v.toUpperCase();
+}
+
+function getKey(...parts){
+  return parts.map(x=>normalize(x)).join("|||");
+}
+
+/* =========================
+   JSON FILE IMPORT
+========================= */
+
+async function handleJSONFile(file){
+
+  if(!file)return;
+
+  if(!file.name.toLowerCase().endsWith(".json")){
+    showMessage("Please select a valid JSON file.","red");
     return;
   }
 
-  GLOBAL_BETS=detectArbStatus(raw);
-  const arbCount=GLOBAL_BETS.filter(b=>b.arbStatus.startsWith("ARB")).length;
+  try{
 
-  summary.innerHTML=`
-    <div class="summary-grid">
-      <div class="stat">Total Bets<br><b>${GLOBAL_BETS.length}</b></div>
-      <div class="stat arb">ARB Bets<br><b>${arbCount}</b></div>
-      <div class="stat safe">SAFE Bets<br><b>${GLOBAL_BETS.length-arbCount}</b></div>
-    </div>
-  `;
+    const content=await file.text();
 
-  renderMarkets(GLOBAL_BETS);
+    JSON.parse(content);
+
+    document.getElementById("input").value=content;
+    document.getElementById("fileName").textContent="✓ "+file.name;
+
+    showMessage(
+      "JSON successfully imported. Ready for analysis.",
+      "green"
+    );
+
+  }catch(error){
+
+    showMessage(
+      "Invalid JSON file. Please check the exported file.",
+      "red"
+    );
+
+  }
 }
 
-/* ---------- MARKET COLLAPSIBLE ---------- */
-function renderMarkets(bets){
-  const groups={};
+/* =========================
+   DRAG AND DROP
+========================= */
 
-  bets.forEach(b=>{
-    const key=`${b.eventName}|||${b.marketName}`;
-    if(!groups[key]) groups[key]=[];
-    groups[key].push(b);
+const dropZone=document.getElementById("dropZone");
+
+["dragenter","dragover"].forEach(event=>{
+  dropZone.addEventListener(event,e=>{
+    e.preventDefault();
+    dropZone.classList.add("dragover");
+  });
+});
+
+["dragleave","drop"].forEach(event=>{
+  dropZone.addEventListener(event,e=>{
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+  });
+});
+
+dropZone.addEventListener("drop",e=>{
+  const file=e.dataTransfer.files[0];
+  handleJSONFile(file);
+});
+
+/* =========================
+   JSON PARSER
+========================= */
+
+function parseJSON(text){
+
+  const data=JSON.parse(text);
+
+  const aliases={
+    userId:[
+      "userId","user_id","playerId",
+      "memberId","username"
+    ],
+
+    eventName:[
+      "eventName","event_name",
+      "event","eventTypeName"
+    ],
+
+    marketName:[
+      "marketName","market_name","market"
+    ],
+
+    selectionName:[
+      "selectionName","selection_name",
+      "selection","runnerName"
+    ],
+
+    matchType:[
+      "matchType","match_type",
+      "betType","betSide","side"
+    ],
+
+    matchStake:[
+      "matchStake","match_stake",
+      "stake","betAmount","amount"
+    ],
+
+    competitionName:[
+      "competitionName","competition",
+      "tournamentName"
+    ]
+  };
+
+  function getValue(obj,keys){
+
+    const normalized={};
+
+    Object.keys(obj).forEach(key=>{
+      normalized[key.toLowerCase()]=obj[key];
+    });
+
+    for(const key of keys){
+
+      const value=normalized[key.toLowerCase()];
+
+      if(value!==undefined && value!==null &&
+         typeof value!=="object"){
+        return value;
+      }
+    }
+
+    return "";
+  }
+
+  const records=[];
+
+  function walk(node){
+
+    if(Array.isArray(node)){
+      node.forEach(walk);
+      return;
+    }
+
+    if(!node || typeof node!=="object")return;
+
+    const record={};
+
+    Object.keys(aliases).forEach(field=>{
+      record[field]=getValue(node,aliases[field]);
+    });
+
+    if(
+      record.userId &&
+      record.eventName &&
+      record.selectionName
+    ){
+      records.push(record);
+    }
+
+    Object.values(node).forEach(value=>{
+
+      if(Array.isArray(value) ||
+        (value && typeof value==="object")){
+        walk(value);
+      }
+
+    });
+  }
+
+  walk(data);
+
+  // Remove duplicate references to the same object
+  // if a BO export nests a record more than once.
+  return records;
+}
+
+/* =========================
+   BO TEXT PARSER
+========================= */
+
+function parseText(text){
+
+  const lines=text
+    .replace(/^\uFEFF/,"")
+    .replace(/\r/g,"")
+    .split("\n");
+
+  const records=[];
+  let current={};
+
+  function save(){
+    if(Object.keys(current).length){
+      records.push(current);
+    }
+    current={};
+  }
+
+  lines.forEach(line=>{
+
+    if(!line.trim()){
+      save();
+      return;
+    }
+
+    let parts=line.split("\t");
+
+    if(parts.length<2){
+
+      const match=line.match(
+        /^\s*([^:=]+?)\s*[:=]\s*(.*?)\s*$/
+      );
+
+      if(!match)return;
+
+      parts=[match[1],match[2]];
+    }
+
+    const key=clean(parts[0]);
+    const value=clean(parts.slice(1).join("\t"));
+
+    if(!FIELDS.includes(key))return;
+
+    if(key==="userId" && current.userId!==undefined){
+      save();
+    }
+
+    current[key]=value;
   });
 
-  markets.innerHTML=`
-    <h3>Sports Bet Breakdown</h3>
-    <input type="text" placeholder="Search…" oninput="filterMarkets(this.value)">
-    ${Object.entries(groups).map(([k,items])=>{
-      const [event,market]=k.split("|||");
-      const hasArb=items.some(i=>i.arbStatus.startsWith("ARB"));
+  save();
+  return records;
+}
+
+/* =========================
+   VALIDATION
+========================= */
+
+function validateRecords(records){
+
+  const valid=[];
+  const rejected=[];
+
+  records.forEach((row,index)=>{
+
+    const b={};
+
+    FIELDS.forEach(field=>{
+      b[field]=clean(row[field]);
+    });
+
+    const missing=[];
+
+    if(!b.userId)missing.push("userId");
+    if(!b.eventName)missing.push("eventName");
+    if(!b.selectionName)missing.push("selectionName");
+
+    if(missing.length){
+      rejected.push({
+        index:index+1,
+        reason:"Missing "+missing.join(", ")
+      });
+      return;
+    }
+
+    b.matchStake=numberValue(b.matchStake);
+    b._index=index;
+    b._type=normalizeType(b.matchType);
+
+    valid.push(b);
+  });
+
+  return {valid,rejected};
+}
+
+/* =========================
+   DETECTION ENGINE
+========================= */
+
+function detectPatterns(bets){
+
+  const groups=new Map();
+
+  bets.forEach(b=>{
+
+    const key=getKey(
+      b.userId,
+      b.eventName,
+      b.marketName
+    );
+
+    if(!groups.has(key)){
+
+      groups.set(key,{
+        key,
+        userId:b.userId,
+        eventName:b.eventName,
+        marketName:b.marketName,
+        competitionName:b.competitionName,
+        bets:[],
+        reasons:new Set(),
+        classification:"SAFE"
+      });
+    }
+
+    groups.get(key).bets.push(b);
+  });
+
+  const results=[];
+
+  groups.forEach(group=>{
+
+    const selections=new Map();
+
+    group.bets.forEach(b=>{
+
+      const selectionKey=normalize(b.selectionName);
+
+      if(!selections.has(selectionKey)){
+        selections.set(selectionKey,{
+          name:b.selectionName,
+          types:new Set(),
+          bets:[]
+        });
+      }
+
+      const selection=selections.get(selectionKey);
+
+      selection.types.add(b._type);
+      selection.bets.push(b);
+    });
+
+    // Opposite Yes / No.
+    const hasYes=group.bets.some(
+      b=>normalize(b.matchType)==="yes"
+    );
+
+    const hasNo=group.bets.some(
+      b=>normalize(b.matchType)==="no"
+    );
+
+    if(hasYes && hasNo){
+      group.reasons.add("FANCY");
+    }
+
+    // Back / Lay on same selection.
+    selections.forEach(selection=>{
+
+      if(
+        selection.types.has("BACK") &&
+        selection.types.has("LAY")
+      ){
+        group.reasons.add("BACKLAY");
+      }
+    });
+
+    // Multiple selections in the same market.
+    if(selections.size>1){
+      group.reasons.add("MULTI");
+    }
+
+    if(group.reasons.size){
+
+      group.classification="REVIEW";
+
+      if(group.reasons.has("FANCY")){
+        group.primaryReason="Opposite Yes / No positions";
+      }else if(group.reasons.has("BACKLAY")){
+        group.primaryReason="Back / Lay conflict on same selection";
+      }else{
+        group.primaryReason="Multiple selections in same market";
+      }
+
+    }else{
+
+      group.classification="SAFE";
+      group.primaryReason="No opposing pattern detected";
+      group.reasons.add("NONE");
+    }
+
+    group.arbConfirmed=false;
+
+    group.totalStake=group.bets.reduce(
+      (sum,b)=>sum+b.matchStake,0
+    );
+
+    group.selectionCount=selections.size;
+    group.betCount=group.bets.length;
+
+    group.bets.forEach(b=>{
+
+      b.classification=group.classification;
+      b.primaryReason=group.primaryReason;
+      b.reasonCodes=[...group.reasons];
+      b.groupKey=group.key;
+
+    });
+
+    results.push(group);
+  });
+
+  results.sort((a,b)=>{
+
+    const rank={REVIEW:0,SAFE:1};
+
+    return rank[a.classification]-rank[b.classification];
+  });
+
+  return results;
+}
+
+/* =========================
+   ANALYZE
+========================= */
+
+function analyze(){
+
+  const text=document.getElementById("input").value.trim();
+
+  if(!text){
+    showMessage("Please paste betting data first.","orange");
+    return;
+  }
+
+  try{
+
+    let records;
+
+    if(text.startsWith("{") || text.startsWith("[")){
+      records=parseJSON(text);
+    }else{
+      records=parseText(text);
+    }
+
+    const validation=validateRecords(records);
+
+    GLOBAL_BETS=validation.valid;
+
+    if(!GLOBAL_BETS.length){
+
+      GLOBAL_GROUPS=[];
+
+      document.getElementById("dashboard").classList.add("hidden");
+      document.getElementById("results").classList.add("hidden");
+
+      showMessage(
+        "No valid records found. Check the BO field names and data format.",
+        "red"
+      );
+
+      return;
+    }
+
+    GLOBAL_GROUPS=detectPatterns(GLOBAL_BETS);
+
+    updateDashboard();
+
+    document.getElementById("dashboard").classList.remove("hidden");
+    document.getElementById("results").classList.remove("hidden");
+
+    document.getElementById("search").value="";
+    document.getElementById("statusFilter").value="ALL";
+    document.getElementById("reasonFilter").value="ALL";
+
+    renderResults();
+
+    const rejectedText=validation.rejected.length
+      ? ` ${validation.rejected.length} invalid records skipped.`
+      : "";
+
+    showMessage(
+      `${GLOBAL_BETS.length} valid bets analyzed across ${GLOBAL_GROUPS.length} player/event/market groups.${rejectedText}`,
+      validation.rejected.length?"orange":"green"
+    );
+
+  }catch(error){
+
+    console.error(error);
+
+    showMessage(
+      "Unable to parse the input. Please check the JSON or BO data format.",
+      "red"
+    );
+  }
+}
+
+/* =========================
+   MESSAGE
+========================= */
+
+function showMessage(message,color){
+
+  const el=document.getElementById("parseMessage");
+
+  el.textContent=message;
+
+  el.style.color=
+    color==="red"?"var(--red)":
+    color==="orange"?"var(--orange)":
+    color==="green"?"var(--green)":
+    "var(--muted)";
+}
+
+/* =========================
+   DASHBOARD
+========================= */
+
+function updateDashboard(){
+
+  const total=GLOBAL_BETS.length;
+
+  const review=GLOBAL_BETS.filter(
+    b=>b.classification==="REVIEW"
+  ).length;
+
+  const safe=total-review;
+
+  const players=new Set(
+    GLOBAL_BETS.map(b=>normalize(b.userId))
+  );
+
+  const affected=GLOBAL_GROUPS.filter(
+    g=>g.classification==="REVIEW"
+  ).length;
+
+  document.getElementById("totalBets").textContent=total;
+  document.getElementById("arbBets").textContent="0";
+  document.getElementById("reviewBets").textContent=review;
+  document.getElementById("safeBets").textContent=safe;
+  document.getElementById("uniquePlayers").textContent=players.size;
+  document.getElementById("affectedMarkets").textContent=affected;
+}
+
+/* =========================
+   FILTERS AND RESULTS
+========================= */
+
+function renderResults(){
+
+  const query=normalize(
+    document.getElementById("search").value
+  );
+
+  const status=document.getElementById("statusFilter").value;
+  const reason=document.getElementById("reasonFilter").value;
+
+  const filtered=GLOBAL_GROUPS.filter(group=>{
+
+    if(status!=="ALL" && group.classification!==status){
+      return false;
+    }
+
+    if(reason!=="ALL" && !group.reasons.has(reason)){
+      return false;
+    }
+
+    const searchable=[
+      group.userId,
+      group.eventName,
+      group.marketName,
+      group.competitionName,
+      group.primaryReason,
+      ...group.bets.map(b=>b.selectionName),
+      ...group.bets.map(b=>b.matchType)
+    ].join(" ");
+
+    return normalize(searchable).includes(query);
+  });
+
+  document.getElementById("resultCount").textContent=
+    `${filtered.length} of ${GLOBAL_GROUPS.length} groups`;
+
+  const container=document.getElementById("marketList");
+
+  if(!filtered.length){
+
+    container.innerHTML=
+      '<div class="empty">No matching records found.</div>';
+
+    return;
+  }
+
+  container.innerHTML=filtered.map((group,index)=>{
+
+    const statusClass=
+      group.classification==="REVIEW"?"review":"safe";
+
+    const rows=group.bets.map(b=>{
+
       return `
-        <details open>
-          <summary>
-            ${event} — ${market}
-            <span class="${hasArb?'arb':'safe'}" style="margin-left:10px">
-              ${hasArb?'ARB':'SAFE'}
+        <tr class="${b.classification==="REVIEW"?"review-row":""}">
+          <td>${escapeHTML(b.userId)}</td>
+          <td>${escapeHTML(b.selectionName)}</td>
+          <td>${escapeHTML(b.matchType||"N/A")}</td>
+          <td>${b.matchStake.toLocaleString("en-US",{maximumFractionDigits:2})}</td>
+          <td>
+            <span class="pill ${statusClass}">
+              ${group.classification}
             </span>
-            <span class="muted">(${items.length} bets)</span>
-          </summary>
+          </td>
+          <td class="reason">
+            ${escapeHTML(b.primaryReason)}
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    const reasonTags=[...group.reasons]
+      .filter(r=>r!=="NONE")
+      .map(r=>`<span class="pill review">${escapeHTML(r)}</span>`)
+      .join(" ");
+
+    return `
+      <details class="group" ${index===0?"open":""}>
+
+        <summary>
+          <span class="group-title">
+            ${escapeHTML(group.eventName)}
+            — ${escapeHTML(group.marketName||"Unspecified Market")}
+          </span>
+
+          <span class="pill ${statusClass}">
+            ${group.classification}
+          </span>
+
+          <span class="pill neutral">
+            ${group.betCount} bets
+          </span>
+        </summary>
+
+        <div style="padding:0 14px 12px">
+
+          <div class="instructions">
+            Player: <b>${escapeHTML(group.userId)}</b>
+            &nbsp; | &nbsp;
+            Selections: <b>${group.selectionCount}</b>
+            &nbsp; | &nbsp;
+            Total Stake:
+            <b>${group.totalStake.toLocaleString("en-US",{maximumFractionDigits:2})}</b>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+            ${reasonTags||'<span class="pill safe">No conflict detected</span>'}
+          </div>
+
+          <div class="instructions">
+            Detection: ${escapeHTML(group.primaryReason)}
+          </div>
+
+        </div>
+
+        <div class="table-wrap">
+
           <table>
             <thead>
               <tr>
-                <th>User</th><th>Selection</th><th>Type</th>
-                <th>Stake</th><th>Status</th><th>Reason</th>
+                <th>USER</th>
+                <th>SELECTION</th>
+                <th>TYPE</th>
+                <th>STAKE</th>
+                <th>STATUS</th>
+                <th>REASON</th>
               </tr>
             </thead>
-            <tbody>
-              ${items.map(b=>`
-                <tr class="${b.arbStatus.startsWith("ARB")?'arb-row':''}">
-                  <td>${b.userId}</td>
-                  <td>${b.selectionName}</td>
-                  <td>${b.matchType}</td>
-                  <td>${b.matchStake}</td>
-                  <td class="${b.arbStatus.startsWith("ARB")?'arb':'safe'}">${b.arbStatus}</td>
-                  <td class="muted">${b.triggeredBy}</td>
-                </tr>
-              `).join("")}
-            </tbody>
+
+            <tbody>${rows}</tbody>
           </table>
-        </details>
-      `;
-    }).join("")}
-  `;
+
+        </div>
+
+      </details>
+    `;
+
+  }).join("");
 }
 
+/* =========================
+   CSV EXPORT
+========================= */
 
-function filterMarkets(q){
-  q = q.toLowerCase().trim();
+function csvCell(value){
 
-  document.querySelectorAll("details").forEach(details => {
-    const rows = details.querySelectorAll("tbody tr");
-    let visibleRowCount = 0;
+  let s=String(value??"");
 
-    rows.forEach(row => {
-      const rowText = row.textContent.toLowerCase();
-      const match = rowText.includes(q);
+  if(/^[\s]*[=+\-@]/.test(s)){
+    s="'"+s;
+  }
 
-      row.style.display = match || q === "" ? "" : "none";
-      if(match || q === "") visibleRowCount++;
-    });
-
-    if(visibleRowCount > 0){
-      details.style.display = "";
-      details.open = true;   // auto expand
-    } else {
-      details.style.display = "none";
-      details.open = false;
-    }
-  });
+  return '"'+s.replace(/"/g,'""')+'"';
 }
 
-
-
-/* ---------- EXPORT ---------- */
 function exportCSV(){
-  if(!GLOBAL_BETS.length) return;
-  let csv="User,Event,Market,Selection,Type,Stake,Status,Reason\n";
-  GLOBAL_BETS.forEach(b=>{
-    csv+=`${b.userId},${b.eventName},${b.marketName},${b.selectionName},${b.matchType},${b.matchStake},${b.arbStatus},${b.triggeredBy}\n`;
+
+  if(!GLOBAL_BETS.length){
+
+    showMessage("Analyze some bets before exporting.","orange");
+    return;
+  }
+
+  const headers=[
+    "User",
+    "Event",
+    "Market",
+    "Competition",
+    "Selection",
+    "Type",
+    "Stake",
+    "Classification",
+    "Detection Reason",
+    "Pattern Codes"
+  ];
+
+  const rows=GLOBAL_BETS.map(b=>[
+    b.userId,
+    b.eventName,
+    b.marketName,
+    b.competitionName,
+    b.selectionName,
+    b.matchType,
+    b.matchStake,
+    b.classification,
+    b.primaryReason,
+    b.reasonCodes.join("; ")
+  ]);
+
+  const csv=[
+    headers,
+    ...rows
+  ].map(row=>row.map(csvCell).join(",")).join("\r\n");
+
+  const blob=new Blob(["\uFEFF"+csv],{
+    type:"text/csv;charset=utf-8;"
   });
+
+  const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-  a.download="arb_export.csv";
+
+  a.href=url;
+  a.download="Sports_Risk_Analysis.csv";
   a.click();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+
+/* =========================
+   SAMPLE DATA
+========================= */
+
+function loadExample(){
+
+  const sample=`userId\tPLAYER001
+eventName\tTeam A vs Team B
+marketName\tMatch Odds
+selectionName\tTeam A
+matchType\tBack
+matchStake\t1000
+competitionName\tPremier League
+
+userId\tPLAYER001
+eventName\tTeam A vs Team B
+marketName\tMatch Odds
+selectionName\tTeam B
+matchType\tBack
+matchStake\t1500
+competitionName\tPremier League
+
+userId\tPLAYER002
+eventName\tTeam C vs Team D
+marketName\tMatch Odds
+selectionName\tTeam C
+matchType\tBack
+matchStake\t500
+competitionName\tPremier League
+
+userId\tPLAYER002
+eventName\tTeam C vs Team D
+marketName\tMatch Odds
+selectionName\tTeam C
+matchType\tLay
+matchStake\t600
+competitionName\tPremier League`;
+
+  document.getElementById("input").value=sample;
+
+  document.getElementById("fileName").textContent="Sample data";
+
+  analyze();
+}
+
+/* =========================
+   CLEAR
+========================= */
+
+function clearAll(){
+
+  document.getElementById("input").value="";
+  document.getElementById("jsonFile").value="";
+  document.getElementById("fileName").textContent="No file selected";
+
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("results").classList.add("hidden");
+
+  GLOBAL_BETS=[];
+  GLOBAL_GROUPS=[];
+
+  showMessage("Awaiting betting data.","green");
+}
+
 </script>
 
 </body>
