@@ -1,7 +1,4 @@
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sports Risk Analyzer</title>
@@ -434,9 +431,8 @@ footer{
   <div class="section-title">01 / Betting Data Import</div>
 
   <div class="instructions">
-    Copy your betting information directly from BO.
-    Paste the JSON or upload the exported file.
-    No manual JSON formatting required.
+    Upload or paste JSON / BO exports, even when the formatting is damaged.
+    The analyzer will attempt safe repairs, validate recovered records, then run the analysis.
   </div>
 
   <div class="import-area">
@@ -448,14 +444,11 @@ footer{
         or select a file from your computer
       </span>
 
-      <button class="secondary" type="button"
-        onclick="document.getElementById('jsonFile').click()">
+      <button class="secondary" type="button" onclick="document.getElementById('jsonFile').click()">
         Browse JSON File
       </button>
 
-      <input type="file" id="jsonFile"
-        accept=".json,application/json"
-        hidden onchange="handleJSONFile(this.files[0])">
+      <input type="file" id="jsonFile" accept=".json,.txt,.csv,.tsv,application/json,text/plain,text/csv" hidden="" onchange="handleJSONFile(this.files[0])">
     </div>
 
     <div class="import-heading" style="margin-top:18px">
@@ -463,8 +456,7 @@ footer{
       <span id="fileName">No file selected</span>
     </div>
 
-    <textarea id="input"
-      placeholder="Paste your BO JSON or tab-separated data here..."></textarea>
+    <textarea id="input" placeholder="Paste your BO JSON or tab-separated data here..."></textarea>
 
     <div class="actions">
       <button class="primary" onclick="analyze()">
@@ -472,6 +464,9 @@ footer{
       </button>
       <button class="secondary" onclick="exportCSV()">
         EXPORT CSV
+      </button>
+      <button class="secondary" onclick="downloadRepairedJSON()">
+        DOWNLOAD REPAIRED JSON
       </button>
       <button class="secondary" onclick="loadExample()">
         LOAD SAMPLE
@@ -484,6 +479,12 @@ footer{
     <div id="parseMessage" class="instructions" style="margin-top:12px">
       Awaiting betting data.
     </div>
+    <details id="repairDetails" style="margin-top:12px" class="hidden">
+      <summary style="cursor:pointer;color:var(--gold);font-size:12px;font-weight:700">
+        VIEW REPAIRED / NORMALIZED JSON
+      </summary>
+      <textarea id="repairedPreview" readonly="" style="min-height:180px;margin-top:10px" placeholder="The normalized records will appear here."></textarea>
+    </details>
   </div>
 </section>
 
@@ -548,9 +549,7 @@ footer{
 
   <div class="toolbar">
 
-    <input id="search"
-      placeholder="Search player, event, market, selection..."
-      oninput="renderResults()">
+    <input id="search" placeholder="Search player, event, market, selection..." oninput="renderResults()">
 
     <select id="statusFilter" onchange="renderResults()">
       <option value="ALL">All classifications</option>
@@ -563,6 +562,7 @@ footer{
       <option value="FANCY">Opposite Yes / No</option>
       <option value="BACKLAY">Back / Lay conflict</option>
       <option value="MULTI">Multiple selections</option>
+      <option value="DATA">Incomplete / uncertain data</option>
       <option value="NONE">No conflict detected</option>
     </select>
 
@@ -595,6 +595,8 @@ const FIELDS = [
 
 let GLOBAL_BETS=[];
 let GLOBAL_GROUPS=[];
+let GLOBAL_NORMALIZED_RECORDS=[];
+let GLOBAL_REPAIR_INFO={format:"",repairs:[],warnings:[]};
 
 /* =========================
    UTILITIES
@@ -650,39 +652,23 @@ function getKey(...parts){
 ========================= */
 
 async function handleJSONFile(file){
-
   if(!file)return;
-
-  if(!file.name.toLowerCase().endsWith(".json")){
-    showMessage("Please select a valid JSON file.","red");
+  const name=(file.name||"").toLowerCase();
+  if(!/\.(json|txt|csv|tsv)$/i.test(name)){
+    showMessage("Choose a JSON, TXT, CSV or TSV export file.","red");
     return;
   }
-
   try{
-
     const content=await file.text();
-
-    JSON.parse(content);
-
     document.getElementById("input").value=content;
     document.getElementById("fileName").textContent="✓ "+file.name;
-
-    showMessage(
-      "JSON successfully imported. Ready for analysis.",
-      "green"
-    );
-
+    showMessage("File loaded. Attempting automatic repair and analysis...","orange");
+    analyze();
   }catch(error){
-
-    showMessage(
-      "Invalid JSON file. Please check the exported file.",
-      "red"
-    );
-
+    console.error(error);
+    showMessage("The selected file could not be read.","red");
   }
-}
-
-/* =========================
+}/* =========================
    DRAG AND DROP
 ========================= */
 
@@ -708,167 +694,232 @@ dropZone.addEventListener("drop",e=>{
 });
 
 /* =========================
-   JSON PARSER
+   AUTO-REPAIR + FLEXIBLE PARSING
 ========================= */
 
-function parseJSON(text){
+const ALIASES={
+  userId:["userId","user_id","playerId","memberId","username","account","loginName"],
+  eventName:["eventName","event_name","event"],
+  marketName:["marketName","market_name","market","marketType"],
+  selectionName:["selectionName","selection_name","selection","runnerName","betSelection"],
+  matchType:["matchType","match_type","betType","betSide","side","position","betDirection"],
+  matchStake:["matchStake","match_stake","stake","betAmount","amount","validStake"],
+  competitionName:["competitionName","competition","tournamentName","leagueName"],
+  eventId:["eventId","event_id"],
+  selectionId:["selectionId","selection_id"],
+  marketId:["marketId","market_id"],
+  matchOddsReq:["matchOddsReq","odds","oddsRequested","requestedOdds"],
+  matchAvgOdds:["matchAvgOdds","averageOdds","avgOdds"],
+  profitLoss:["profitLoss","profit_loss","pnl"],
+  betId:["betId","bet_id","transactionId"],
+  betPlaced:["betPlaced","placedAt","betTime","createdAt"],
+  betStatus:["betStatus","status"],
+  site:["site","provider","platform"],
+  eventTypeName:["eventTypeName","sport","sportName"]
+};
 
-  const data=JSON.parse(text);
-
-  const aliases={
-    userId:[
-      "userId","user_id","playerId",
-      "memberId","username"
-    ],
-
-    eventName:[
-      "eventName","event_name",
-      "event","eventTypeName"
-    ],
-
-    marketName:[
-      "marketName","market_name","market"
-    ],
-
-    selectionName:[
-      "selectionName","selection_name",
-      "selection","runnerName"
-    ],
-
-    matchType:[
-      "matchType","match_type",
-      "betType","betSide","side"
-    ],
-
-    matchStake:[
-      "matchStake","match_stake",
-      "stake","betAmount","amount"
-    ],
-
-    competitionName:[
-      "competitionName","competition",
-      "tournamentName"
-    ]
-  };
-
-  function getValue(obj,keys){
-
-    const normalized={};
-
-    Object.keys(obj).forEach(key=>{
-      normalized[key.toLowerCase()]=obj[key];
-    });
-
-    for(const key of keys){
-
-      const value=normalized[key.toLowerCase()];
-
-      if(value!==undefined && value!==null &&
-         typeof value!=="object"){
-        return value;
-      }
-    }
-
-    return "";
+function canonicalKey(key){
+  const k=String(key??"").trim().toLowerCase();
+  for(const [canonical,aliases] of Object.entries(ALIASES)){
+    if(aliases.some(a=>a.toLowerCase()===k)) return canonical;
   }
+  return String(key??"").trim();
+}
 
+function readField(obj,aliases){
+  if(!obj || typeof obj!=="object")return "";
+  const keys=Object.keys(obj);
+  for(const alias of aliases){
+    const found=keys.find(k=>k.toLowerCase()===alias.toLowerCase());
+    if(found!==undefined){
+      const v=obj[found];
+      if(v!==undefined && v!==null && typeof v!=="object")return v;
+    }
+  }
+  return "";
+}
+
+function toCanonicalRecord(obj){
+  const out={};
+  Object.keys(obj||{}).forEach(k=>{out[canonicalKey(k)]=obj[k]});
+  for(const [field,aliases] of Object.entries(ALIASES)){
+    const value=readField(obj,aliases);
+    if(value!=="" && out[field]===undefined)out[field]=value;
+  }
+  return out;
+}
+
+function repairJSONText(source){
+  let s=String(source??"").replace(/^\uFEFF/,"").trim();
+  s=s.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
+  const repairs=[];
+  let out="", quote=null, escaped=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i], n=s[i+1];
+    if(quote){
+      out+=c;
+      if(escaped)escaped=false;
+      else if(c==="\\")escaped=true;
+      else if(c===quote)quote=null;
+      continue;
+    }
+    if(c==='"' || c==="'"){quote=c;out+=c;continue;}
+    if(c==="/" && n==="/"){
+      while(i<s.length && s[i]!=="\n")i++;
+      out+="\n";continue;
+    }
+    if(c==="/" && n==="*"){
+      i+=2;
+      while(i<s.length && !(s[i]==="*" && s[i+1]==="/"))i++;
+      i++;out+=" ";continue;
+    }
+    out+=c;
+  }
+  if(out!==s)repairs.push("Removed comments");
+  s=out;
+
+  out=""; quote=null; escaped=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(quote){
+      if(quote==="'" && c==="'" && !escaped)out+='"';
+      else if(quote==="'" && c==='"' && !escaped)out+='\\"';
+      else out+=c;
+      if(escaped)escaped=false;
+      else if(c==="\\")escaped=true;
+      else if(c===quote)quote=null;
+      continue;
+    }
+    if(c==="'"){quote="'";out+='"';continue;}
+    if(c==='"'){quote='"';out+=c;continue;}
+    out+=c;
+  }
+  if(out!==s)repairs.push("Converted single quotes");
+  s=out;
+
+  const beforeKeys=s;
+  s=s.replace(/([{,]\s*)([A-Za-z_$][\w$-]*)(\s*:)/g,'$1"$2"$3');
+  if(s!==beforeKeys)repairs.push("Quoted unquoted object keys");
+
+  const beforeTrailing=s;
+  s=s.replace(/,\s*([}\]])/g,"$1");
+  if(s!==beforeTrailing)repairs.push("Removed trailing commas");
+
+  const beforeComma=s;
+  s=s.replace(/(["'\d\]}])\s+("(?:[^"\\]|\\.)+"\s*:)/g,"$1,$2");
+  if(s!==beforeComma)repairs.push("Inserted missing property commas");
+  return {text:s,repairs};
+}
+
+function extractJSONRecords(data){
   const records=[];
-
-  function walk(node){
-
-    if(Array.isArray(node)){
-      node.forEach(walk);
+  function walk(node,inherited={}){
+    if(Array.isArray(node)){node.forEach(item=>walk(item,inherited));return;}
+    if(!node || typeof node!=="object")return;
+    const merged={...inherited,...node};
+    const canonical=toCanonicalRecord(merged);
+    if(canonical.userId && canonical.eventName && canonical.selectionName){
+      records.push(canonical);
       return;
     }
-
-    if(!node || typeof node!=="object")return;
-
-    const record={};
-
-    Object.keys(aliases).forEach(field=>{
-      record[field]=getValue(node,aliases[field]);
+    const context={...inherited};
+    ["userId","eventName","marketName","competitionName","eventId"].forEach(k=>{
+      const v=canonical[k];
+      if(v!==undefined && v!==null && v!=="")context[k]=v;
     });
-
-    if(
-      record.userId &&
-      record.eventName &&
-      record.selectionName
-    ){
-      records.push(record);
-    }
-
     Object.values(node).forEach(value=>{
-
-      if(Array.isArray(value) ||
-        (value && typeof value==="object")){
-        walk(value);
-      }
-
+      if(Array.isArray(value) || (value && typeof value==="object"))walk(value,context);
     });
   }
-
   walk(data);
-
-  // Remove duplicate references to the same object
-  // if a BO export nests a record more than once.
   return records;
 }
 
-/* =========================
-   BO TEXT PARSER
-========================= */
+function parseJSON(text){
+  const original=String(text??"").replace(/^\uFEFF/,"").trim();
+  const notes=[];
+  try{
+    const records=extractJSONRecords(JSON.parse(original));
+    if(records.length)return {records,format:"Valid JSON",repairs:[],warnings:[]};
+    notes.push("Valid JSON syntax, but no recognizable bet records were found.");
+  }catch(e){notes.push("Original JSON syntax was invalid.");}
+
+  const repaired=repairJSONText(original);
+  try{
+    const records=extractJSONRecords(JSON.parse(repaired.text));
+    if(records.length)return {records,format:"Repaired JSON",repairs:repaired.repairs,warnings:[]};
+    notes.push("Repaired JSON contained no recognizable bet records.");
+  }catch(e){notes.push("Syntax repair could not parse the complete input: "+e.message);}
+
+  const textRecords=parseText(original);
+  if(textRecords.length){
+    return {
+      records:textRecords.map(toCanonicalRecord),
+      format:"BO tab-separated / text export",
+      repairs:["Converted BO key/value blocks into structured records"],
+      warnings:["Input was interpreted as a BO text export, not standard JSON."]
+    };
+  }
+  throw new Error(notes.join(" "));
+}
 
 function parseText(text){
-
-  const lines=text
-    .replace(/^\uFEFF/,"")
-    .replace(/\r/g,"")
-    .split("\n");
-
+  const lines=String(text??"").replace(/^\uFEFF/,"").replace(/\r/g,"").split("\n");
   const records=[];
   let current={};
-
   function save(){
-    if(Object.keys(current).length){
-      records.push(current);
-    }
+    if(Object.keys(current).length)records.push(toCanonicalRecord(current));
     current={};
   }
-
-  lines.forEach(line=>{
-
-    if(!line.trim()){
-      save();
-      return;
+  for(let raw of lines){
+    let line=raw.trim();
+    if(!line || line==="{" || line==="}," || line==="}"){
+      if(!line)save();
+      continue;
     }
-
-    let parts=line.split("\t");
-
-    if(parts.length<2){
-
-      const match=line.match(
-        /^\s*([^:=]+?)\s*[:=]\s*(.*?)\s*$/
-      );
-
-      if(!match)return;
-
-      parts=[match[1],match[2]];
+    if(line.startsWith("{") && current.userId!==undefined)save();
+    line=line.replace(/^[{,]\s*/,"").replace(/\s*[},]\s*$/,"");
+    if(!line)continue;
+    let key="",value="";
+    if(line.includes("\t")){
+      const parts=line.split("\t");
+      key=parts.shift().trim();
+      value=parts.join("\t").trim();
+    }else{
+      const m=line.match(/^([^:=]+?)\s*[:=]\s*(.*?)\s*$/);
+      if(!m)continue;
+      key=m[1].trim();value=m[2].trim();
     }
-
-    const key=clean(parts[0]);
-    const value=clean(parts.slice(1).join("\t"));
-
-    if(!FIELDS.includes(key))return;
-
-    if(key==="userId" && current.userId!==undefined){
-      save();
-    }
-
-    current[key]=value;
-  });
-
+    key=key.replace(/^["']|["']$/g,"").trim();
+    value=value.replace(/^["']|["']$/g,"").trim();
+    if(!key)continue;
+    const canonical=canonicalKey(key);
+    if(canonical==="userId" && current.userId!==undefined)save();
+    current[canonical]=value;
+  }
   save();
   return records;
+}
+
+function detectInput(text){
+  const t=String(text??"").trim();
+  if(!t)return {records:[],format:"Empty",repairs:[],warnings:[]};
+  if(t.startsWith("{") || t.startsWith("[")){
+    try{return parseJSON(t);}
+    catch(jsonError){
+      const rows=parseText(t);
+      if(rows.length)return {
+        records:rows.map(toCanonicalRecord),
+        format:"BO text export",
+        repairs:["Interpreted brace-wrapped tabular records"],
+        warnings:[jsonError.message]
+      };
+      throw jsonError;
+    }
+  }
+  const rows=parseText(t);
+  if(rows.length)return {records:rows,format:"BO text export",repairs:[],warnings:[]};
+  throw new Error("No recognizable JSON or BO key/value records were found.");
 }
 
 /* =========================
@@ -876,39 +927,38 @@ function parseText(text){
 ========================= */
 
 function validateRecords(records){
-
-  const valid=[];
-  const rejected=[];
-
+  const valid=[],rejected=[];
   records.forEach((row,index)=>{
-
-    const b={};
-
-    FIELDS.forEach(field=>{
-      b[field]=clean(row[field]);
-    });
-
+    const source=toCanonicalRecord(row);
+    const b={...source};
+    FIELDS.forEach(field=>{if(b[field]===undefined)b[field]=""});
+    b.userId=clean(b.userId);
+    b.eventName=clean(b.eventName);
+    b.marketName=clean(b.marketName);
+    b.selectionName=clean(b.selectionName);
+    b.matchType=clean(b.matchType);
+    b.competitionName=clean(b.competitionName);
     const missing=[];
-
     if(!b.userId)missing.push("userId");
     if(!b.eventName)missing.push("eventName");
     if(!b.selectionName)missing.push("selectionName");
-
     if(missing.length){
-      rejected.push({
-        index:index+1,
-        reason:"Missing "+missing.join(", ")
-      });
+      rejected.push({index:index+1,reason:"Missing "+missing.join(", "),record:source});
       return;
     }
-
     b.matchStake=numberValue(b.matchStake);
     b._index=index;
     b._type=normalizeType(b.matchType);
-
+    b._dataWarnings=[];
+    if(!b.marketName)b._dataWarnings.push("Market name missing");
+    if(!b.matchType)b._dataWarnings.push("Bet type missing");
+    if(source.matchStake===undefined || source.matchStake==="")b._dataWarnings.push("Stake missing");
+    if(source.matchStake!==undefined && source.matchStake!=="" &&
+       !Number.isFinite(Number(String(source.matchStake).replace(/,/g,"")))){
+      b._dataWarnings.push("Stake is not numeric");
+    }
     valid.push(b);
   });
-
   return {valid,rejected};
 }
 
@@ -998,6 +1048,9 @@ function detectPatterns(bets){
       group.reasons.add("MULTI");
     }
 
+    const hasDataWarnings=group.bets.some(b=>b._dataWarnings && b._dataWarnings.length);
+    if(hasDataWarnings)group.reasons.add("DATA");
+
     if(group.reasons.size){
 
       group.classification="REVIEW";
@@ -1006,8 +1059,10 @@ function detectPatterns(bets){
         group.primaryReason="Opposite Yes / No positions";
       }else if(group.reasons.has("BACKLAY")){
         group.primaryReason="Back / Lay conflict on same selection";
-      }else{
+      }else if(group.reasons.has("MULTI")){
         group.primaryReason="Multiple selections in same market";
+      }else{
+        group.primaryReason="Incomplete or uncertain bet data";
       }
 
     }else{
@@ -1053,73 +1108,60 @@ function detectPatterns(bets){
 ========================= */
 
 function analyze(){
-
-  const text=document.getElementById("input").value.trim();
-
-  if(!text){
-    showMessage("Please paste betting data first.","orange");
+  const input=document.getElementById("input").value;
+  if(!input.trim()){
+    showMessage("Please paste betting data or upload a file first.","orange");
     return;
   }
-
   try{
-
-    let records;
-
-    if(text.startsWith("{") || text.startsWith("[")){
-      records=parseJSON(text);
-    }else{
-      records=parseText(text);
-    }
-
-    const validation=validateRecords(records);
-
+    const parsed=detectInput(input);
+    const validation=validateRecords(parsed.records);
     GLOBAL_BETS=validation.valid;
+    GLOBAL_NORMALIZED_RECORDS=validation.valid.map(b=>{
+      const cleanRow={};
+      Object.keys(b).filter(k=>!k.startsWith("_") &&
+        !["classification","primaryReason","reasonCodes","groupKey"].includes(k))
+        .forEach(k=>cleanRow[k]=b[k]);
+      return cleanRow;
+    });
+    GLOBAL_REPAIR_INFO={
+      format:parsed.format,
+      repairs:parsed.repairs||[],
+      warnings:[...(parsed.warnings||[]),...(validation.rejected.length?
+        [validation.rejected.length+" record(s) rejected because required identifiers were missing."]:[])]
+    };
+    document.getElementById("repairedPreview").value=JSON.stringify(GLOBAL_NORMALIZED_RECORDS,null,2);
+    document.getElementById("repairDetails").classList.remove("hidden");
 
     if(!GLOBAL_BETS.length){
-
       GLOBAL_GROUPS=[];
-
       document.getElementById("dashboard").classList.add("hidden");
       document.getElementById("results").classList.add("hidden");
-
-      showMessage(
-        "No valid records found. Check the BO field names and data format.",
-        "red"
-      );
-
+      const detail=validation.rejected.slice(0,5).map(r=>`Record ${r.index}: ${r.reason}`).join(" | ");
+      showMessage("No analyzable records. "+(detail||"Check the input format."),"red");
       return;
     }
-
     GLOBAL_GROUPS=detectPatterns(GLOBAL_BETS);
-
     updateDashboard();
-
     document.getElementById("dashboard").classList.remove("hidden");
     document.getElementById("results").classList.remove("hidden");
-
     document.getElementById("search").value="";
     document.getElementById("statusFilter").value="ALL";
     document.getElementById("reasonFilter").value="ALL";
-
     renderResults();
 
-    const rejectedText=validation.rejected.length
-      ? ` ${validation.rejected.length} invalid records skipped.`
-      : "";
-
-    showMessage(
-      `${GLOBAL_BETS.length} valid bets analyzed across ${GLOBAL_GROUPS.length} player/event/market groups.${rejectedText}`,
-      validation.rejected.length?"orange":"green"
-    );
-
+    const notes=[];
+    if(parsed.repairs?.length)notes.push("Repairs: "+parsed.repairs.join(", "));
+    if(parsed.warnings?.length)notes.push(...parsed.warnings);
+    if(validation.rejected.length)notes.push(validation.rejected.length+" rejected record(s)");
+    const summary=`${GLOBAL_BETS.length} bets analyzed from ${parsed.format}. ${GLOBAL_GROUPS.length} player/event/market groups.`;
+    showMessage(summary+(notes.length?" "+notes.join(" · "):" No repair needed."),notes.length?"orange":"green");
   }catch(error){
-
     console.error(error);
-
-    showMessage(
-      "Unable to parse the input. Please check the JSON or BO data format.",
-      "red"
-    );
+    GLOBAL_BETS=[];GLOBAL_GROUPS=[];GLOBAL_NORMALIZED_RECORDS=[];
+    document.getElementById("dashboard").classList.add("hidden");
+    document.getElementById("results").classList.add("hidden");
+    showMessage("Could not recover this file safely: "+error.message,"red");
   }
 }
 
@@ -1313,6 +1355,23 @@ function renderResults(){
   }).join("");
 }
 
+function downloadRepairedJSON(){
+  if(!GLOBAL_NORMALIZED_RECORDS.length){
+    showMessage("Analyze a file first. There are no recovered records to download.","orange");
+    return;
+  }
+  const blob=new Blob([JSON.stringify(GLOBAL_NORMALIZED_RECORDS,null,2)],{
+    type:"application/json;charset=utf-8"
+  });
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="Sports_Risk_Repaired.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  showMessage("Repaired JSON downloaded. "+GLOBAL_NORMALIZED_RECORDS.length+" recovered records included.","green");
+}
+
 /* =========================
    CSV EXPORT
 ========================= */
@@ -1441,11 +1500,15 @@ function clearAll(){
 
   GLOBAL_BETS=[];
   GLOBAL_GROUPS=[];
-
+  GLOBAL_NORMALIZED_RECORDS=[];
+  GLOBAL_REPAIR_INFO={format:"",repairs:[],warnings:[]};
+  document.getElementById("repairDetails").classList.add("hidden");
+  document.getElementById("repairedPreview").value="";
   showMessage("Awaiting betting data.","green");
 }
 
 </script>
 
-</body>
-</html>
+
+
+</body></html>
